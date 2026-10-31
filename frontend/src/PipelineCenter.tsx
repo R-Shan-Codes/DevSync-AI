@@ -8,6 +8,14 @@ type PipelineTask = {
   status: string
   stage: string
   assignee_id: string | null
+  assignment_suggestions: {
+    user_id: string
+    display_name: string
+    role: string
+    role_match: boolean
+    active_task_count: number
+    reason: string
+  }[]
   prerequisites: { task_id: string; title: string; status: string }[]
   open_bug_count: number
   latest_review: { decision: string; summary: string } | null
@@ -55,7 +63,8 @@ export default function PipelineCenter({ token, projectId }: { token: string; pr
         <div className="panel-heading"><div><b>{task.title}</b><small className="muted">{label(task.stage)} · {label(task.status)}</small></div><span className={task.ready_for_next_step ? 'pill' : 'role'}>{task.ready_for_next_step ? <><CheckCircle2 size={13}/> Ready</> : <><AlertTriangle size={13}/> Blocked</>}</span></div>
         <p className="muted">Next: {task.next_action}</p>
         {task.gates.length > 0 && <div className="pipeline-gates">{task.gates.map(gate => <span className="role" key={gate}>{label(gate)}</span>)}</div>}
-        {task.assignment_suggestions.length > 0 && <div className="pipeline-assignment"><b>Suggested owners (not assigned)</b>{task.assignment_suggestions.map(candidate => <small key={candidate.user_id}>{candidate.display_name} · {label(candidate.role)} · {candidate.active_task_count} active task(s)</small>)}</div>}\n        {task.prerequisites.length > 0 && <small>Waiting for: {task.prerequisites.map(item => `${item.title} (${label(item.status)})`).join(', ')}</small>}
+        {task.assignment_suggestions.length > 0 && <div className="pipeline-assignment"><b>Suggested owners (not assigned)</b>{task.assignment_suggestions.map(candidate => <small key={candidate.user_id}>{candidate.display_name} · {label(candidate.role)} · {candidate.active_task_count} active task(s)</small>)}</div>}
+        {task.prerequisites.length > 0 && <small>Waiting for: {task.prerequisites.map(item => `${item.title} (${label(item.status)})`).join(', ')}</small>}
         {task.latest_review && <small>Latest review: {label(task.latest_review.decision)}{task.latest_review.summary ? ` — ${task.latest_review.summary}` : ''}</small>}
         {task.latest_test_run && <small>Latest tests: {task.latest_test_run.passed}/{task.latest_test_run.total} passed · {task.latest_test_run.failed} failed</small>}
         {task.open_bug_count > 0 && <small><CircleDot size={12}/> {task.open_bug_count} open bug(s)</small>}
