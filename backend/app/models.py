@@ -184,6 +184,7 @@ class AIOverride(Base):
  user_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
  decision:Mapped[str]=mapped_column(String(20),nullable=False)
  reason:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ replacement_value:Mapped[str|None]=mapped_column(String(120),nullable=True)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
 
 class HandoverRecord(Base):
