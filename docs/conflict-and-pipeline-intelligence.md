@@ -18,6 +18,12 @@ The endpoint is intentionally read-only. It does not change task status, assign 
 
 This is an evidence-based readiness view, not an enforcement boundary. Existing task transitions and permissions remain unchanged in this milestone.
 
+## AI review evidence in the development pipeline
+
+AI pull-request reviews and CI diagnoses can be explicitly linked to a project task from the GitHub analysis detail view. Linking requires project edit permission and validates that both the analysis and task belong to the same project. Duplicate links are idempotent.
+
+The Development Pipeline then displays the latest linked analysis summary, source identifier and finding count on that task. This is advisory context only: AI findings are not treated as confirmed bugs, do not create blockers, and never change task status or delivery readiness. A human must verify findings and use the existing bug-report workflow when an issue is confirmed.
+
 ## Dashboard
 
 - Adds a Development Pipeline view with stage counts, per-task next actions, dependency blockers, review/test evidence and open bug counts.
