@@ -113,3 +113,4 @@ class BugReport(Base):
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
  severity:Mapped[str]=mapped_column(String(20),default='medium',nullable=False)
  status:Mapped[str]=mapped_column(String(20),default='open',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False,index=True)
