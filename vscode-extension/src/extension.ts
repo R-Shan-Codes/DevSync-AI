@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGit', syncGit))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.open', (task: Task) => vscode.window.showInformationMessage(`${task.title}\nStatus: ${task.status}`)))
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
-  watcher.onDidChange(() => tree.refresh()); watcher.onDidCreate(() => tree.refresh()); watcher.onDidDelete(() => tree.refresh())
+  watcher.onDidChange(() => refresh()); watcher.onDidCreate(() => refresh()); watcher.onDidDelete(() => refresh())
   context.subscriptions.push(watcher)
   poll = setInterval(() => refresh(), 60000)
   context.subscriptions.push({ dispose: () => { if (poll) clearInterval(poll) } })
