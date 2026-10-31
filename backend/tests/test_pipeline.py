@@ -59,4 +59,4 @@ def test_pipeline_is_project_scoped(client):
 
     response = client.get(f"/api/v1/projects/{project['id']}/pipeline", headers=second)
 
-    assert response.status_code == 403
+    assert response.status_code == 404  # Project membership intentionally hides private project existence.
