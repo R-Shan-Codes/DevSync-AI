@@ -29,9 +29,9 @@ It is not yet a complete general-purpose project-management suite. The task obje
 | AI conflict detector | Partial | Read-only Git merge conflict analysis for refs available locally | Remote branch synchronization and earlier predictive conflict warnings |
 | Smart development pipeline | Implemented foundation | Read-only stages, blockers, next action, review/test evidence and linked AI analysis | Configurable gates and automated integrations; retain human approval for consequential actions |
 | Task comments and mentions | Partial | Task-scoped comments are persisted, permission-checked and shown in a discussion panel | Threaded replies, @mentions, edit/delete history and notifications |
-| Subtasks / issue hierarchy | Missing | No parent-child task model found | Add hierarchy and roll-up progress |
-| Sprints / cycles | Missing | No sprint/cycle entity or planning UI found | Add backlog planning, cycle dates, goals and velocity |
-| Milestones / roadmaps | Missing | No milestone/roadmap model or UI found | Add milestones, roadmap views and progress rollups |
+| Subtasks / issue hierarchy | Implemented foundation | Tasks support a project-scoped parent_task_id; API rejects self-parenting and hierarchy cycles; dashboard shows parent/direct child relationships | Multi-level tree navigation, roll-up progress and bulk hierarchy operations |
+| Sprints / cycles | Implemented foundation | Project-scoped cycles with goals, start/end dates, planned/active/completed states, task linking and progress rollups | Backlog capacity planning, velocity history and sprint reports |
+| Milestones / roadmaps | Implemented foundation | Project milestones with target dates, status, linked tasks and roadmap progress cards | Timeline/Gantt views, dependencies between milestones and baseline tracking |
 | Labels and custom fields | Missing | Task schema currently has no labels or extensible fields | Add project-scoped labels and typed custom fields |
 | Search and saved views | Missing | No global task search or saved filter/view model found | Add server-side search, filters, sorting and saved views |
 | Attachments | Missing | No attachment upload/storage workflow found | Add safe object storage, ACLs and limits |
