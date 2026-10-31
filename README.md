@@ -25,6 +25,10 @@ The application records review and test evidence and surfaces pipeline readiness
 - `vscode-extension/` — TypeScript VS Code extension.
 - `docs/` — architecture, API contracts, integration runbooks and product capability audit.
 
+## Judge demo
+
+For a no-credentials interactive preview, run the dashboard and open `http://localhost:5173/?demo=1`. This standalone sample mode demonstrates role switching, task status changes, simulated bug reporting and an activity stream without requiring an account or backend. It is clearly labelled as simulated data. See the [judge demo guide](docs/judge-demo-guide.md) for the walkthrough and full-stack setup.
+
 ## Setup
 
 - Backend: see [backend setup](backend/README.md).
