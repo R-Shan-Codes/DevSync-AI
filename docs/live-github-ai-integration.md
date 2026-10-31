@@ -67,3 +67,15 @@ These protections reduce accidental disclosure but cannot guarantee detection of
 The backend test suite covers webhook signature validation, delivery idempotency, duplicate commit idempotency, exact repository matching, push/PR/check event persistence, AI output normalization, credential redaction, bounded log ZIP extraction/downloads, access control and task-link persistence. Frontend CI type-checks and builds the dashboard. Extension CI compiles the VS Code extension.
 
 CI does not exercise a real GitHub OAuth exchange, public webhook delivery, a live private repository, GitHub Actions log permissions or a live Gemini request. Those remain deployment-dependent acceptance checks and should be performed only after the complete-project test phase is announced.
+
+
+## Dashboard integration diagnostics
+
+The GitHub tab includes **Run live checks**. It calls `POST /api/v1/github/projects/{project_id}/integration-check` and reports:
+- Whether GitHub OAuth client credentials and the token encryption key are configured.
+- Whether the signed-in user's stored GitHub token can authenticate to GitHub.
+- Whether that account can access the project's exact linked repository.
+- Whether the configured Gemini model can return a valid structured response (a small connectivity-only request; no source code or logs are sent).
+- Whether the webhook secret is configured.
+
+The endpoint does not persist diagnostics, return secrets, or change project state. The webhook item remains a warning even when configured because an outbound API check cannot prove that GitHub can reach the deployment's inbound webhook URL. Confirm that separately by sending a test delivery from GitHub and inspecting **Recent Deliveries**.
