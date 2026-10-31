@@ -7,7 +7,7 @@ type TestRun = { id: string; task_id: string; tester_id: string; result: string;
 type BugReport = { id: string; task_id: string; title: string; description: string; severity: string; status: string; resolution: string | null; created_at: string; updated_at: string }
 
 type Props = { token: string; projectId: string; member: Member | null; tasks: Task[]; members: Member[]; onRefresh: () => void }
-const pretty = (value: string) => value.replaceAll('_', ' ').replace(/\\b\\w/g, char => char.toUpperCase())
+const pretty = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase())
 
 export default function WorkflowCenter({ token, projectId, member, tasks, members, onRefresh }: Props) {
   const [selectedTaskId, setSelectedTaskId] = useState('')
