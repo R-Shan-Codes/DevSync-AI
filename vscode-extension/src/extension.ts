@@ -110,7 +110,10 @@ function enqueueEvent(event: DevEvent) {
     const existing = pendingEvents.findIndex(item =>
       item.event_type === event.event_type && String(item.payload.path || '') === path
     )
-    if (existing >= 0) pendingEvents[existing] = event
+    if (existing >= 0) {
+      pendingEvents[existing] = event
+      return
+    }
   }
   if (pendingEvents.length >= MAX_PENDING_EVENTS) {
     const discard = pendingEvents.findIndex(item => item.event_type.startsWith('file.'))
