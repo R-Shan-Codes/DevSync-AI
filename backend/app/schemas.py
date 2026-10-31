@@ -9,7 +9,7 @@ class Token(BaseModel): access_token:str;token_type:str='bearer'
 class ProjectCreate(BaseModel): name:str=Field(min_length=2,max_length=120);description:str=Field(default='',max_length=4000)
 class ProjectRead(BaseModel):
  model_config=ConfigDict(from_attributes=True)
- id:str;name:str;description:str;owner_id:str;created_at:datetime
+ id:str;name:str;description:str;owner_id:str;created_at:datetime;github_repo_full_name:str|None=None;github_repo_url:str|None=None;github_default_branch:str|None=None
 class MemberCreate(BaseModel): email:EmailStr;role:ProjectRole=ProjectRole.frontend_developer
 class MemberUpdate(BaseModel): role:ProjectRole|None=None;permissions:dict[str,bool]|None=None
 class MemberRead(BaseModel): id:str;user_id:str;email:EmailStr;display_name:str;role:str;permissions:dict[str,bool]
