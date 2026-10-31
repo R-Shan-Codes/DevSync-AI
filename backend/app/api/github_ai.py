@@ -312,7 +312,7 @@ def extract_job_logs(archive: bytes) -> str:
                 text = raw[:remaining].decode("utf-8", errors="replace")
                 chunks.append(text)
                 remaining -= len(text)
-        return "\\n".join(chunks) or "[No readable text or log files were present in the job archive.]"
+        return "\n".join(chunks) or "[No readable text or log files were present in the job archive.]"
     except (zipfile.BadZipFile, OSError, RuntimeError, ValueError):
         return "[Job log archive could not be decoded safely.]"
 
