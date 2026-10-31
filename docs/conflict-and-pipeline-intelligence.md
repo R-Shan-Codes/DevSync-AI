@@ -81,3 +81,7 @@ The VS Code extension now emits workspace-opened, branch-changed and commit-crea
 The backend persists valid commit-created events as Git events with project-scoped commit-hash deduplication. This connects editor-observed commits to the existing commit-to-task matching flow: the dashboard proposes heuristic task matches, and a member with edit permission explicitly confirms a link. No task association is silently created.
 
 The dashboard's project WebSocket now triggers refreshes of the Activity timeline, AI Development Intelligence and Development Pipeline. The Activity timeline combines project activity records with individual developer events. This keeps connected clients synchronized without treating a WebSocket notification as the source of truth; views re-fetch persisted records from the API.
+
+
+## External integration hardening
+GitHub webhook repository association uses exact case-insensitive owner/repository matching. Repeated commit hashes across separate push deliveries do not duplicate GitEvent rows. AI review and CI analysis use bounded streaming downloads, bounded ZIP extraction, expanded common-secret redaction and a Gemini API key request header. See [the live integration runbook](live-github-ai-integration.md) for required credentials and deployment verification.
