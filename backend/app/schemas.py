@@ -37,6 +37,7 @@ class TestRunCreate(BaseModel):
   if self.result=='failed' and not self.failed: raise ValueError('A failed run must contain at least one failed test')
   return self
 class TestRunRead(BaseModel):
+ __test__ = False
  model_config=ConfigDict(from_attributes=True)
  id:str;project_id:str;task_id:str;tester_id:str;result:str;summary:str;total:int;passed:int;failed:int;created_at:datetime
 
