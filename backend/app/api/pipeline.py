@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member
-from app.models import BugReport, CodeReview, Task, TaskDependency, TaskStatus, TestRun, User
+from app.models import BugReport, CodeReview, ProjectMember, ProjectRole, Task, TaskDependency, TaskStatus, TestRun, User
 
 router = APIRouter(prefix="/projects/{project_id}/pipeline", tags=["development pipeline"])
 
@@ -65,6 +65,59 @@ def get_pipeline(project_id: str, db: Session = Depends(get_db), user: User = De
     for bug in bugs:
         open_bugs[bug.task_id] = open_bugs.get(bug.task_id, 0) + 1
 
+    members = db.scalars(select(ProjectMember).where(ProjectMember.project_id == project_id)).all()
+    member_users = {member.user_id: db.get(User, member.user_id) for member in members}
+    workload = {}
+    for existing in tasks:
+        if existing.assignee_id and existing.status not in {TaskStatus.merged, TaskStatus.cancelled, TaskStatus.passed}:
+            workload[existing.assignee_id] = workload.get(existing.assignee_id, 0) + 1
+
+    role_keywords = {
+        ProjectRole.frontend_developer: ("frontend", "ui", "component", "react", "css", "browser", "page", "dashboard"),
+        ProjectRole.ui_ux_designer: ("design", "ux", "ui", "wireframe", "accessibility", "layout"),
+        ProjectRole.backend_developer: ("api", "backend", "database", "server", "endpoint", "model", "auth"),
+        ProjectRole.tester_qa_engineer: ("test", "qa", "regression", "coverage", "validate", "quality"),
+        ProjectRole.tester: ("test", "qa", "regression", "coverage", "validate"),
+        ProjectRole.debugger: ("bug", "fix", "debug", "error", "crash", "failure"),
+        ProjectRole.devops_engineer: ("deploy", "ci", "cd", "pipeline", "infra", "docker", "release"),
+        ProjectRole.security_engineer: ("security", "vulnerability", "permission", "secret", "audit"),
+        ProjectRole.documentation_specialist: ("docs", "documentation", "readme", "guide"),
+    }
+
+    def suggest_assignees(task):
+        text = f"{task.title} {task.description}".lower()
+        preferred = {
+            role for role, keywords in role_keywords.items()
+            if any(keyword in text for keyword in keywords)
+        }
+        candidates = []
+        for member in members:
+            candidate = member_users.get(member.user_id)
+            if not candidate or not candidate.is_active:
+                continue
+            role_match = member.role in preferred if preferred else True
+            candidates.append({
+                "user_id": candidate.id,
+                "display_name": candidate.display_name,
+                "role": member.role.value,
+                "role_match": role_match,
+                "active_task_count": workload.get(candidate.id, 0),
+            })
+        candidates.sort(key=lambda item: (
+            not item["role_match"], item["active_task_count"], item["display_name"].lower()
+        ))
+        return [
+            {
+                **candidate,
+                "reason": (
+                    "Role aligns with task keywords and current workload is considered."
+                    if candidate["role_match"]
+                    else "Suggested by current workload; role match is not established."
+                ),
+            }
+            for candidate in candidates[:3]
+        ]
+
     rows = []
     for task in tasks:
         blocked_by = []
@@ -104,7 +157,7 @@ def get_pipeline(project_id: str, db: Session = Depends(get_db), user: User = De
             "title": task.title,
             "status": task.status.value,
             "stage": _task_stage(task.status),
-            "assignee_id": task.assignee_id,
+            "assignee_id": task.assignee_id,\n            "assignment_suggestions": suggest_assignees(task) if not task.assignee_id and task.status not in {TaskStatus.merged, TaskStatus.cancelled} else [],
             "prerequisites": blocked_by,
             "open_bug_count": open_bugs.get(task.id, 0),
             "latest_review": {"decision": review.decision, "summary": review.summary} if review else None,
