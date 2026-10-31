@@ -33,11 +33,11 @@ def test_project_websocket_accepts_member_and_answers_ping(client: TestClient):
 
 
 def test_project_websocket_rejects_missing_token(client: TestClient):
-    with client.websocket_connect("/ws/projects/not-a-project") as websocket:
-        # The server closes the socket during the handshake; TestClient raises
-        # WebSocketDisconnect before yielding on supported Starlette versions.
-        websocket.send_text("ping")
-        assert websocket.receive_json() == {"type": "pong"}
+    try:
+        with client.websocket_connect("/ws/projects/not-a-project"):
+            assert False, "A socket without a token must be rejected"
+    except WebSocketDisconnect as exc:
+        assert exc.code == 4401
 
 
 def test_project_websocket_rejects_non_member(client: TestClient):
