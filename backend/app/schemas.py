@@ -9,9 +9,10 @@ class Token(BaseModel): access_token:str;token_type:str='bearer'
 class ProjectCreate(BaseModel): name:str=Field(min_length=2,max_length=120);description:str=Field(default='',max_length=4000)
 class ProjectRead(BaseModel):
  model_config=ConfigDict(from_attributes=True)
- id:str;name:str;description:str;owner_id:str;created_at:datetime
-class MemberCreate(BaseModel): email:EmailStr;role:ProjectRole=ProjectRole.coder
-class MemberRead(BaseModel): id:str;user_id:str;email:EmailStr;display_name:str;role:ProjectRole
+ id:str;name:str;description:str;owner_id:str;created_at:datetime;github_repo_full_name:str|None=None;github_repo_url:str|None=None;github_default_branch:str|None=None
+class MemberCreate(BaseModel): email:EmailStr;role:ProjectRole=ProjectRole.frontend_developer
+class MemberUpdate(BaseModel): role:ProjectRole|None=None;permissions:dict[str,bool]|None=None
+class MemberRead(BaseModel): id:str;user_id:str;email:EmailStr;display_name:str;role:str;permissions:dict[str,bool]
 class TaskCreate(BaseModel): title:str=Field(min_length=2,max_length=180);description:str=Field(default='',max_length=10000);assignee_id:str|None=None
 class TaskUpdate(BaseModel): title:str|None=Field(default=None,min_length=2,max_length=180);description:str|None=Field(default=None,max_length=10000);status:TaskStatus|None=None;assignee_id:str|None=None
 class TaskRead(BaseModel):
@@ -36,5 +37,11 @@ class TestRunCreate(BaseModel):
   if self.result=='failed' and not self.failed: raise ValueError('A failed run must contain at least one failed test')
   return self
 class TestRunRead(BaseModel):
+ __test__ = False
  model_config=ConfigDict(from_attributes=True)
  id:str;project_id:str;task_id:str;tester_id:str;result:str;summary:str;total:int;passed:int;failed:int;created_at:datetime
+
+class AIAssistRequest(BaseModel):
+ project_id:str
+ role:str=Field(pattern='^(team_leader_project_manager|ui_ux_designer|frontend_developer|backend_developer|tester_qa_engineer|devops_engineer|security_engineer|documentation_specialist|coder|debugger|tester)$')
+ prompt:str=Field(min_length=2,max_length=12000)
