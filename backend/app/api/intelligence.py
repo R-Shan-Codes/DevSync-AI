@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 import httpx
@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member, record_activity
 from app.models import (
     AIConversation, AIMessage, AIOverride, AIRecommendation, CommitTaskLink,
-    DevelopmentEvent, FileChange, GitEvent, HandoverRecord, ProjectMember,
+    DevelopmentEvent, FileChange, GitEvent, HandoverRecord,
     Task, TaskDependency, User,
 )
 from app.permissions import require_permission, normalize_role
@@ -80,7 +80,7 @@ class HandoverCreate(BaseModel):
 def _safe_relative_path(value: str) -> str:
     path = value.replace("\\", "/").strip()
     parsed = PurePosixPath(path)
-    if not path or parsed.is_absolute() or any(part in ("..", "") for part in parsed.parts) or re.match(r"^[A-Za-z]:", path):
+    if not path or path == "." or not parsed.parts or parsed.is_absolute() or any(part in ("..", "") for part in parsed.parts) or re.match(r"^[A-Za-z]:", path):
         raise HTTPException(status_code=422, detail="File paths must be relative and cannot traverse outside the workspace")
     return str(parsed)
 
@@ -302,7 +302,7 @@ async def send_message(project_id: str, conversation_id: str, data: MessageCreat
         raise HTTPException(status_code=403, detail="Your project role changed; create a new conversation")
     user_message = AIMessage(conversation_id=conversation_id, sender="user", content=data.content.strip())
     db.add(user_message)
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     history = db.scalars(select(AIMessage).where(AIMessage.conversation_id == conversation_id)
                          .order_by(AIMessage.created_at.desc()).limit(12)).all()
@@ -418,3 +418,53 @@ def list_handovers(project_id: str, limit: int = Query(default=50, ge=1, le=200)
     return [{"id": r.id, "user_id": r.user_id, "summary": r.summary,
              "pending_items": json.loads(r.pending_items), "blockers": json.loads(r.blockers),
              "created_at": r.created_at.isoformat()} for r in rows]
+
+
+@router.get("/projects/{project_id}/intelligence/summary")
+def intelligence_summary(project_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    get_project_member(project_id, db, user)
+    events = db.scalars(select(DevelopmentEvent).where(DevelopmentEvent.project_id == project_id)).all()
+    files = db.scalars(select(FileChange).where(FileChange.project_id == project_id)).all()
+    pending_count = len(db.scalars(select(AIRecommendation).where(
+        AIRecommendation.project_id == project_id, AIRecommendation.status == "pending"
+    )).all())
+    return {
+        "development_events": len(events),
+        "file_changes": len(files),
+        "unique_files": len({change.path for change in files}),
+        "active_developers": len({event.actor_id for event in events}),
+        "pending_ai_recommendations": pending_count,
+        "latest_event_at": max((event.created_at for event in events), default=None),
+    }
+
+
+@router.get("/projects/{project_id}/intelligence/my-memory")
+def my_developer_memory(project_id: str, limit: int = Query(default=50, ge=1, le=200),
+                        db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    get_project_member(project_id, db, user)
+    events = db.scalars(select(DevelopmentEvent).where(
+        DevelopmentEvent.project_id == project_id, DevelopmentEvent.actor_id == user.id
+    ).order_by(DevelopmentEvent.created_at.desc()).limit(limit)).all()
+    files = db.scalars(select(FileChange).where(
+        FileChange.project_id == project_id, FileChange.actor_id == user.id
+    ).order_by(FileChange.created_at.desc()).limit(limit)).all()
+    tasks = db.scalars(select(Task).where(
+        Task.project_id == project_id, Task.assignee_id == user.id
+    ).order_by(Task.updated_at.desc()).limit(50)).all()
+    handovers = db.scalars(select(HandoverRecord).where(
+        HandoverRecord.project_id == project_id, HandoverRecord.user_id == user.id
+    ).order_by(HandoverRecord.created_at.desc()).limit(20)).all()
+    return {
+        "developer": {"id": user.id, "display_name": user.display_name},
+        "assigned_tasks": [{"id": task.id, "title": task.title, "status": task.status.value,
+                            "updated_at": task.updated_at.isoformat()} for task in tasks],
+        "recent_events": [{"id": event.id, "event_type": event.event_type,
+                           "payload": json.loads(event.payload), "created_at": event.created_at.isoformat()}
+                          for event in events],
+        "recent_file_changes": [{"id": change.id, "path": change.path, "change_type": change.change_type,
+                                 "branch": change.branch, "created_at": change.created_at.isoformat()}
+                                for change in files],
+        "handovers": [{"id": item.id, "summary": item.summary,
+                       "pending_items": json.loads(item.pending_items), "blockers": json.loads(item.blockers),
+                       "created_at": item.created_at.isoformat()} for item in handovers],
+    }
