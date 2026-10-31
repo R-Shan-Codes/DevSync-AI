@@ -22,6 +22,8 @@ def test_pipeline_reports_task_stage_and_next_action(client):
     assert payload["tasks"][0]["task_id"] == task["id"]
     assert payload["tasks"][0]["next_action"] == "Start coding"
     assert payload["tasks"][0]["ready_for_next_step"] is True
+    assert payload["tasks"][0]["assignment_suggestions"]
+    assert payload["tasks"][0]["assignment_suggestions"][0]["user_id"]
 
 
 def test_pipeline_marks_incomplete_prerequisite_as_blocker(client):
