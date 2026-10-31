@@ -23,3 +23,7 @@ Base path: /api/v1
 - GET /projects/{project_id}/activity?limit=50 — newest project activity (limit 1–200).
 
 All project endpoints require membership. Use Authorization: Bearer <access_token>. Interactive OpenAPI documentation is available at /docs when the API is running.
+
+
+## GitHub webhook receiver
+- POST /github/webhooks — public GitHub webhook endpoint. Requires a configured `GITHUB_WEBHOOK_SECRET` and valid `X-Hub-Signature-256`, `X-GitHub-Delivery`, and `X-GitHub-Event` headers. Handles push, pull_request, check_run, and check_suite events for repositories linked to a project. Delivery IDs are persisted to prevent duplicate processing.
