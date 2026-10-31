@@ -46,6 +46,9 @@ class Task(TimestampMixin,Base):
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
  priority:Mapped[str]=mapped_column(String(10),default='medium',nullable=False)
  due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+ cycle_id:Mapped[str|None]=mapped_column(ForeignKey('cycles.id',ondelete='SET NULL'),nullable=True,index=True)
+ milestone_id:Mapped[str|None]=mapped_column(ForeignKey('milestones.id',ondelete='SET NULL'),nullable=True,index=True)
+ parent_task_id:Mapped[str|None]=mapped_column(ForeignKey('tasks.id',ondelete='SET NULL'),nullable=True,index=True)
  status:Mapped[TaskStatus]=mapped_column(Enum(TaskStatus),default=TaskStatus.backlog,nullable=False)
  assignee_id:Mapped[str|None]=mapped_column(ForeignKey('users.id',ondelete='SET NULL'))
  created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
@@ -267,3 +270,23 @@ class TaskComment(Base):
  author_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
  body:Mapped[str]=mapped_column(Text,nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class Cycle(TimestampMixin,Base):
+ __tablename__='cycles'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ name:Mapped[str]=mapped_column(String(120),nullable=False)
+ goal:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ start_date:Mapped[date]=mapped_column(Date,nullable=False)
+ end_date:Mapped[date]=mapped_column(Date,nullable=False)
+ status:Mapped[str]=mapped_column(String(20),default='planned',index=True,nullable=False)
+
+class Milestone(TimestampMixin,Base):
+ __tablename__='milestones'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ name:Mapped[str]=mapped_column(String(120),nullable=False)
+ description:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+ status:Mapped[str]=mapped_column(String(20),default='planned',index=True,nullable=False)
