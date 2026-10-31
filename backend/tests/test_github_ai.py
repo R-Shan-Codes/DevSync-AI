@@ -530,6 +530,9 @@ def test_integration_check_validates_github_repository_and_gemini_without_exposi
     monkeypatch.setattr(settings, "github_webhook_secret", "webhook-secret-must-not-leak")
 
     class FakeAsyncClient:
+        def __init__(self, timeout=15):
+            self.timeout = timeout
+
         async def __aenter__(self):
             return self
 
