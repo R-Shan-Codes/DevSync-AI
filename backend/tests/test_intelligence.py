@@ -146,8 +146,12 @@ def test_bug_reporting_and_dependency_impact_analysis(client):
 
 
 def test_vscode_commit_event_enters_commit_matching_and_explicit_link_flow(client):
-    headers, project, task, _ = create_project_and_tasks(client, "vscode-commit-flow@example.com")
+    headers, project, _, _ = create_project_and_tasks(client, "vscode-commit-flow@example.com")
     pid = project["id"]
+    task = client.post(
+        f"/api/v1/projects/{pid}/tasks", headers=headers,
+        json={"title": "Fix authentication token refresh"},
+    ).json()
     commit_hash = "a" * 40
     ingested = client.post(
         f"/api/v1/projects/{pid}/intelligence/events",
