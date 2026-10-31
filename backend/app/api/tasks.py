@@ -8,6 +8,7 @@ from app.models import Cycle, Milestone, ProjectMember, Task, TaskComment, TaskS
 from app.schemas import TaskCommentCreate, TaskCommentRead, TaskCreate, TaskRead, TaskUpdate
 from app.realtime import manager
 from app.permissions import require_permission
+from app.notification_service import add_notification
 
 router = APIRouter(prefix="/projects/{project_id}/tasks", tags=["tasks"])
 TRANSITIONS = {
@@ -27,7 +28,7 @@ TRANSITIONS = {
 
 @router.post("", response_model=TaskRead, status_code=201)
 async def create_task(project_id: str, data: TaskCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    _, member = get_project_member(project_id, db, user)
+    project, member = get_project_member(project_id, db, user)
     require_permission(member, "edit")
     if data.assignee_id and not db.scalar(select(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == data.assignee_id)):
         raise HTTPException(status_code=400, detail="Assignee must be a project member")
@@ -39,6 +40,18 @@ async def create_task(project_id: str, data: TaskCreate, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="Parent task must belong to this project")
     task = Task(project_id=project_id, title=data.title.strip(), description=data.description, assignee_id=data.assignee_id, created_by_id=user.id, priority=data.priority, due_date=data.due_date, cycle_id=data.cycle_id, milestone_id=data.milestone_id, parent_task_id=data.parent_task_id)
     db.add(task)
+    db.flush()
+    if data.assignee_id:
+        add_notification(
+            db,
+            user_id=data.assignee_id,
+            project_id=project_id,
+            actor_id=user.id,
+            notification_type="task.assigned",
+            title="New task assigned",
+            message=f"You were assigned to {task.title} in {project.name}.",
+            resource_path=f"/projects/{project_id}/tasks/{task.id}",
+        )
     record_activity(db, project_id, user.id, "task.created", {"title": task.title})
     db.commit()
     db.refresh(task)
@@ -79,7 +92,7 @@ def list_tasks(
 
 @router.patch("/{task_id}", response_model=TaskRead)
 async def update_task(project_id: str, task_id: str, data: TaskUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    _, member = get_project_member(project_id, db, user)
+    project, member = get_project_member(project_id, db, user)
     task = db.scalar(select(Task).where(Task.id == task_id, Task.project_id == project_id))
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -107,6 +120,18 @@ async def update_task(project_id: str, task_id: str, data: TaskUpdate, db: Sessi
         require_permission(member, "manage_team")
         if changes["assignee_id"] and not db.scalar(select(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == changes["assignee_id"])):
             raise HTTPException(status_code=400, detail="Assignee must be a project member")
+        new_assignee_id = changes["assignee_id"]
+        if new_assignee_id and new_assignee_id != task.assignee_id:
+            add_notification(
+                db,
+                user_id=new_assignee_id,
+                project_id=project_id,
+                actor_id=user.id,
+                notification_type="task.assigned",
+                title="Task assigned to you",
+                message=f"You were assigned to {task.title} in {project.name}.",
+                resource_path=f"/projects/{project_id}/tasks/{task.id}",
+            )
     new_status = changes.get("status")
     if new_status is not None and new_status != task.status:
         if new_status not in TRANSITIONS[task.status]:
@@ -120,6 +145,17 @@ async def update_task(project_id: str, task_id: str, data: TaskUpdate, db: Sessi
         else:
             require_permission(member, "edit")
         record_activity(db, project_id, user.id, "task.status_changed", {"task_id": task.id, "from": task.status.value, "to": new_status.value})
+        if task.assignee_id:
+            add_notification(
+                db,
+                user_id=task.assignee_id,
+                project_id=project_id,
+                actor_id=user.id,
+                notification_type="task.status_changed",
+                title="Assigned task updated",
+                message=f"{task.title} moved from {task.status.value.replace('_', ' ')} to {new_status.value.replace('_', ' ')}.",
+                resource_path=f"/projects/{project_id}/tasks/{task.id}",
+            )
     for key, value in changes.items():
         if value is not None or key in {"due_date", "cycle_id", "milestone_id", "parent_task_id"}:
             setattr(task, key, value)

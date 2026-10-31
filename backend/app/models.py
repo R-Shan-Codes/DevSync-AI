@@ -290,3 +290,17 @@ class Milestone(TimestampMixin,Base):
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
  due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
  status:Mapped[str]=mapped_column(String(20),default='planned',index=True,nullable=False)
+
+
+class Notification(Base):
+ __tablename__='notifications'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ user_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ actor_id:Mapped[str|None]=mapped_column(ForeignKey('users.id',ondelete='SET NULL'),nullable=True)
+ notification_type:Mapped[str]=mapped_column(String(60),index=True,nullable=False)
+ title:Mapped[str]=mapped_column(String(180),nullable=False)
+ message:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ resource_path:Mapped[str]=mapped_column(String(500),default='',nullable=False)
+ read_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True,index=True)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
