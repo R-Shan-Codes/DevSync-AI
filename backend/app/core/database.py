@@ -15,6 +15,12 @@ def init_db():
  Base.metadata.create_all(bind=engine)
  # Safe additive migration for existing SQLite installations.
  from sqlalchemy import inspect, text
+ if 'projects' in inspect(engine).get_table_names():
+  columns={column['name'] for column in inspect(engine).get_columns('projects')}
+  with engine.begin() as connection:
+   if 'github_repo_full_name' not in columns: connection.execute(text('ALTER TABLE projects ADD COLUMN github_repo_full_name VARCHAR(255)'))
+   if 'github_repo_url' not in columns: connection.execute(text('ALTER TABLE projects ADD COLUMN github_repo_url VARCHAR(500)'))
+   if 'github_default_branch' not in columns: connection.execute(text('ALTER TABLE projects ADD COLUMN github_default_branch VARCHAR(255)'))
  if 'project_members' in inspect(engine).get_table_names():
   columns={column['name'] for column in inspect(engine).get_columns('project_members')}
   if 'permissions' not in columns:
