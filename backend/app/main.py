@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import activity,auth,projects,tasks,git,reviews,test_runs,websocket,ai,memory
 from app.core.config import settings
 from app.core.database import init_db
-app=FastAPI(title=settings.app_name,description='Collaborative development workflow API for DevSync AI.',version='0.2.0')
+app=FastAPI(title=settings.app_name,description='Collaborative development workflow API for DevSync.',version='0.2.0')
 app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origin_list,allow_credentials=True,allow_methods=['*'],allow_headers=['*'])
 @app.on_event('startup')
 def startup(): init_db()
