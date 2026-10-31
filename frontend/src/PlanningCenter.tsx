@@ -27,7 +27,6 @@ export default function PlanningCenter({token,projectId,tasks,canEdit,revision,o
  const [taskMilestone,setTaskMilestone]=useState('')
  const [taskParent,setTaskParent]=useState('')
  const selected=tasks.find(task=>task.id===selectedTask)
- const taskNames=useMemo(()=>new Map(tasks.map(task=>[task.id,task.title])),[tasks])
 
  async function load(){
   if(!projectId)return
