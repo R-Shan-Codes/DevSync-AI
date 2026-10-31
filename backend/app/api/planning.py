@@ -32,6 +32,7 @@ async def update_cycle(project_id:str,cycle_id:str,data:CycleUpdate,db:Session=D
  if not cycle: raise HTTPException(status_code=404,detail='Cycle not found')
  changes=data.model_dump(exclude_unset=True)
  start=changes.get('start_date',cycle.start_date);end=changes.get('end_date',cycle.end_date)
+ if start is None or end is None: raise HTTPException(status_code=422,detail='Cycle start and end dates are required')
  if end<start: raise HTTPException(status_code=422,detail='Cycle end date must be on or after start date')
  for key,value in changes.items():
   if value is not None: setattr(cycle,key,value)
