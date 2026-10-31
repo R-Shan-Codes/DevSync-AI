@@ -10,6 +10,7 @@ let eventTimer: ReturnType<typeof setTimeout> | undefined
 let gitPoll: ReturnType<typeof setInterval> | undefined
 let lastGitBranch = ''
 let lastGitCommit = ''
+let flushingEvents = false
 const execFileAsync = promisify(execFile)
 let pendingEvents: DevEvent[] = []
 
@@ -143,14 +144,23 @@ async function syncGitMetadata() {
 async function flushDevEvents() {
   if (eventTimer) clearTimeout(eventTimer)
   eventTimer = undefined
-  if (!api || !pendingEvents.length) return
+  if (flushingEvents || !api || !pendingEvents.length) return
+  flushingEvents = true
   const batch = pendingEvents.splice(0, 100)
   try {
-    if (await api.hasToken()) await api.ingestEvents(batch)
+    if (!(await api.hasToken())) {
+      pendingEvents.unshift(...batch)
+      return
+    }
+    await api.ingestEvents(batch)
   } catch {
-    vscode.window.setStatusBarMessage('DevSync: development activity could not be synchronized', 5000)
+    pendingEvents.unshift(...batch)
+    vscode.window.setStatusBarMessage('DevSync: development activity could not be synchronized; retrying', 5000)
+    eventTimer = setTimeout(() => { void flushDevEvents() }, 5000)
+  } finally {
+    flushingEvents = false
   }
-  if (pendingEvents.length) void flushDevEvents()
+  if (pendingEvents.length && !eventTimer) void flushDevEvents()
 }
 
 function message(e: unknown) { return e instanceof Error ? e.message : String(e) }
