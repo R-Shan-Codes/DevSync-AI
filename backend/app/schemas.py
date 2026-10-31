@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel,ConfigDict,EmailStr,Field
+from pydantic import BaseModel,ConfigDict,EmailStr,Field,model_validator
 from app.models import ProjectRole,TaskStatus
 class UserCreate(BaseModel): email:EmailStr;display_name:str=Field(min_length=1,max_length=80);password:str=Field(min_length=8,max_length=128)
 class UserRead(BaseModel):
@@ -18,3 +18,23 @@ class TaskRead(BaseModel):
  model_config=ConfigDict(from_attributes=True)
  id:str;project_id:str;title:str;description:str;status:TaskStatus;assignee_id:str|None;created_by_id:str;created_at:datetime;updated_at:datetime
 class ActivityRead(BaseModel): id:str;project_id:str;actor_id:str;event_type:str;payload:dict;created_at:datetime
+class GitSyncRequest(BaseModel): repository_path:str=Field(min_length=1,max_length=500);commit_limit:int=Field(default=30,ge=1,le=100)
+class GitEventRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;repository_path:str;branch:str;commit_hash:str;author:str;author_email:str;committed_at:str;message:str;created_at:datetime
+class ReviewCreate(BaseModel):
+ task_id:str;decision:str=Field(pattern='^(approved|changes_requested|commented)$');summary:str=Field(default='',max_length=5000);findings:str=Field(default='',max_length=20000)
+class ReviewRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;task_id:str;reviewer_id:str;decision:str;summary:str;findings:str;created_at:datetime
+class TestRunCreate(BaseModel):
+ task_id:str;result:str=Field(pattern='^(passed|failed|blocked)$');summary:str=Field(default='',max_length=10000);total:int=Field(default=0,ge=0);passed:int=Field(default=0,ge=0);failed:int=Field(default=0,ge=0)
+ @model_validator(mode='after')
+ def validate_counts(self):
+  if self.passed+self.failed>self.total: raise ValueError('passed + failed cannot exceed total')
+  if self.result=='passed' and self.failed: raise ValueError('A passed run cannot contain failed tests')
+  if self.result=='failed' and not self.failed: raise ValueError('A failed run must contain at least one failed test')
+  return self
+class TestRunRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;task_id:str;tester_id:str;result:str;summary:str;total:int;passed:int;failed:int;created_at:datetime
