@@ -69,6 +69,7 @@ class RecommendationCreate(BaseModel):
 class OverrideCreate(BaseModel):
     decision: str = Field(pattern="^(accepted|rejected|modified)$")
     reason: str = Field(default="", max_length=5000)
+    replacement_value: str | None = Field(default=None, max_length=120)
 
 
 class HandoverCreate(BaseModel):
@@ -106,6 +107,8 @@ async def ingest_events(project_id: str, data: EventBatch, db: Session = Depends
         if item.event_type not in EVENT_TYPES:
             raise HTTPException(status_code=422, detail=f"Unsupported event type: {item.event_type}")
         payload = item.payload
+        if len(json.dumps(payload, ensure_ascii=False)) > 12000:
+            raise HTTPException(status_code=413, detail="Development event payload exceeds 12 KB")
         if item.event_type.startswith("file."):
             path = _safe_relative_path(str(payload.get("path", "")))
             change_type = item.event_type.split(".", 1)[1]
@@ -386,13 +389,17 @@ def override_recommendation(project_id: str, recommendation_id: str, data: Overr
         raise HTTPException(status_code=404, detail="Recommendation not found")
     if row.status != "pending":
         raise HTTPException(status_code=409, detail="Recommendation has already been decided")
+    if data.decision == "modified" and not (data.replacement_value or "").strip():
+        raise HTTPException(status_code=422, detail="replacement_value is required for a modified decision")
     row.status = data.decision
-    override = AIOverride(recommendation_id=row.id, user_id=user.id, decision=data.decision, reason=data.reason)
+    override = AIOverride(recommendation_id=row.id, user_id=user.id, decision=data.decision,
+                          reason=data.reason, replacement_value=(data.replacement_value or "").strip() or None)
     db.add(override)
     record_activity(db, project_id, user.id, "ai.recommendation_overridden",
                     {"recommendation_id": row.id, "decision": data.decision})
     db.commit()
-    return {"recommendation_id": row.id, "status": row.status, "decision": data.decision}
+    return {"recommendation_id": row.id, "status": row.status, "decision": data.decision,
+            "replacement_value": override.replacement_value}
 
 
 @router.post("/projects/{project_id}/handover", status_code=201)
