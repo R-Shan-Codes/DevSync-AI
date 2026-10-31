@@ -74,3 +74,34 @@
 .github-integration-badge.failed{border-color:#a34b58;color:#ffb6c0;background:#3b202b}
 
 .task-collaboration{display:grid;gap:14px}.task-collaboration-controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px}.task-comments{display:grid;gap:10px}.task-comment{padding:12px;border:1px solid #263550;border-radius:9px;background:#0d1628}.task-comment small{display:block;color:#7f8da8;margin-bottom:6px}.task-comment p{margin:0;font-size:12px;white-space:pre-wrap}.task-comment-compose{display:flex;gap:10px}.task-comment-compose input{flex:1}@media(max-width:720px){.task-collaboration-controls{grid-template-columns:1fr}.task-comment-compose{flex-direction:column}}
+
+
+/* Cycles, milestones and task hierarchy planning */
+.planning-center{display:grid;gap:16px}
+.planning-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.planning-tabs button{border:1px solid #2b3a55;background:#101b30;color:#aebbd2;padding:9px 14px;border-radius:8px;font-size:11px}
+.planning-tabs button.active{border-color:#829cff;color:#dce5f7;background:#1a2a49}
+.planning-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.planning-form-grid label{display:grid;gap:6px;font-size:10px;color:#9aa9c3}
+.planning-form-grid .wide{grid-column:1/-1}
+.planning-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.planning-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.planning-card{display:grid;gap:10px;padding:14px;border:1px solid #263550;border-radius:10px;background:#0d1729;min-width:0}
+.planning-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.planning-card-header b{font-size:13px}
+.planning-card p{font-size:11px;line-height:1.55;color:#9aa9c3;margin:0;overflow-wrap:anywhere}
+.planning-card small{font-size:10px;color:#8190aa}
+.planning-card-controls{display:flex;gap:8px;flex-wrap:wrap}
+.planning-card-controls select{font-size:10px;padding:7px 9px}
+.planning-progress{height:6px;border-radius:20px;background:#25324a;overflow:hidden}
+.planning-progress i{display:block;height:100%;background:#829cff;border-radius:20px}
+.planning-progress-label{display:flex;justify-content:space-between;font-size:10px;color:#9aa9c3}
+.planning-relationship-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.planning-relationship-grid label{display:grid;gap:6px;font-size:10px;color:#9aa9c3}
+.planning-task-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #263550}
+.planning-task-row>div{display:grid;gap:4px;min-width:0}
+.planning-task-row b{font-size:11px;overflow-wrap:anywhere}
+.planning-task-row small{font-size:10px;color:#8190aa}
+.planning-empty{padding:18px;text-align:center;color:#8190aa;font-size:11px;border:1px dashed #34445f;border-radius:9px}
+@media(max-width:850px){.planning-card-grid{grid-template-columns:1fr}.planning-relationship-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.planning-form-grid,.planning-relationship-grid{grid-template-columns:1fr}.planning-form-grid .wide{grid-column:auto}.planning-task-row{align-items:flex-start;flex-direction:column}}
