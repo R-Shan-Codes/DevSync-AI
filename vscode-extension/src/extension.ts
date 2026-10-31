@@ -13,6 +13,7 @@ let lastGitCommit = ''
 let flushingEvents = false
 const execFileAsync = promisify(execFile)
 let pendingEvents: DevEvent[] = []
+const MAX_PENDING_EVENTS = 1000
 
 export function activate(context: vscode.ExtensionContext) {
   api = new DevSyncApi(context)
@@ -67,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
   }))
   const folders = vscode.workspace.workspaceFolders
   if (folders?.length) {
-    pendingEvents.push({ event_type: 'workspace.opened', payload: { workspace: folders[0].name }, source: 'vscode' })
+    enqueueEvent({ event_type: 'workspace.opened', payload: { workspace: folders[0].name }, source: 'vscode' })
     void flushDevEvents()
   }
   void syncGitMetadata()
@@ -97,10 +98,36 @@ function queueFileEvent(event_type: string, uri: vscode.Uri) {
   const path = vscode.workspace.asRelativePath(uri, false).split(String.fromCharCode(92)).join('/')
   const ignored = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'build', 'coverage', '.next'])
   if (!path || path.split('/').some(part => ignored.has(part)) || path.startsWith('../')) return
-  pendingEvents.push({ event_type, payload: { path }, source: 'vscode' })
+  enqueueEvent({ event_type, payload: { path }, source: 'vscode' })
   if (pendingEvents.length >= 100) void flushDevEvents()
   if (eventTimer) clearTimeout(eventTimer)
   eventTimer = setTimeout(() => { void flushDevEvents() }, 1200)
+}
+
+function enqueueEvent(event: DevEvent) {
+  if (event.event_type.startsWith('file.')) {
+    const path = String(event.payload.path || '')
+    const existing = pendingEvents.findIndex(item =>
+      item.event_type === event.event_type && String(item.payload.path || '') === path
+    )
+    if (existing >= 0) pendingEvents[existing] = event
+  }
+  if (pendingEvents.length >= MAX_PENDING_EVENTS) {
+    const discard = pendingEvents.findIndex(item => item.event_type.startsWith('file.'))
+    if (discard >= 0) pendingEvents.splice(discard, 1)
+    else if (event.event_type.startsWith('file.')) return
+    else pendingEvents.shift()
+    vscode.window.setStatusBarMessage('DevSync: offline activity queue reached its limit; oldest metadata was discarded', 7000)
+  }
+  pendingEvents.push(event)
+}
+
+function restoreEvents(batch: DevEvent[]) {
+  pendingEvents.unshift(...batch)
+  while (pendingEvents.length > MAX_PENDING_EVENTS) {
+    const discard = pendingEvents.findIndex(item => item.event_type.startsWith('file.'))
+    pendingEvents.splice(discard >= 0 ? discard : 0, 1)
+  }
 }
 
 async function syncGitMetadata() {
@@ -112,7 +139,7 @@ async function syncGitMetadata() {
     const branch = branchResult.stdout.trim()
     if (branch && branch !== lastGitBranch) {
       lastGitBranch = branch
-      pendingEvents.push({ event_type: 'branch.changed', payload: { branch, repository_path: folder.name }, source: 'vscode' })
+      enqueueEvent({ event_type: 'branch.changed', payload: { branch, repository_path: folder.name }, source: 'vscode' })
     }
     const logResult = await execFileAsync('git', [
       '-C', root, 'log', '-n', '20', '--format=%H%x1f%an%x1f%ae%x1f%cI%x1f%s'
@@ -129,7 +156,7 @@ async function syncGitMetadata() {
     // On first connection, register the current HEAD only; do not import repository history implicitly.
     if (!lastGitCommit && fresh.length > 1) fresh.splice(1)
     for (const commit of fresh.reverse()) {
-      pendingEvents.push({
+      enqueueEvent({
         event_type: 'commit.created',
         payload: {
           commit_hash: commit.commitHash.toLowerCase(),
@@ -158,12 +185,12 @@ async function flushDevEvents() {
   const batch = pendingEvents.splice(0, 100)
   try {
     if (!(await api.hasToken())) {
-      pendingEvents.unshift(...batch)
+      restoreEvents(batch)
       return
     }
     await api.ingestEvents(batch)
   } catch {
-    pendingEvents.unshift(...batch)
+    restoreEvents(batch)
     vscode.window.setStatusBarMessage('DevSync: development activity could not be synchronized; retrying', 5000)
     eventTimer = setTimeout(() => { void flushDevEvents() }, 5000)
   } finally {
