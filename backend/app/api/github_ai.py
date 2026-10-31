@@ -156,6 +156,36 @@ async def gemini_analysis(instruction: str, evidence: str) -> dict:
         raise HTTPException(status_code=502, detail="Gemini did not return a valid structured analysis.") from exc
 
 
+async def github_download_bounded(
+    client: httpx.AsyncClient, url: str, token: str, max_bytes: int
+) -> bytes:
+    """Download a GitHub log archive with a hard response-body limit."""
+    headers = {**GITHUB_HEADERS, "Authorization": f"Bearer {token}"}
+    try:
+        async with client.stream("GET", url, headers=headers) as response:
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="GitHub authorization expired. Reconnect your GitHub account.")
+            if response.status_code == 403:
+                raise HTTPException(status_code=403, detail="GitHub denied access to this repository or its Actions logs.")
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="GitHub resource was not found or is not accessible to this account.")
+            if not response.is_success:
+                raise HTTPException(status_code=502, detail=f"GitHub API returned HTTP {response.status_code}.")
+            content_length = response.headers.get("content-length")
+            if content_length and content_length.isdigit() and int(content_length) > max_bytes:
+                raise HTTPException(status_code=413, detail="GitHub Actions log archive exceeds the configured size limit.")
+            chunks = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(status_code=413, detail="GitHub Actions log archive exceeds the configured size limit.")
+                chunks.append(chunk)
+            return b"".join(chunks)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Could not download GitHub Actions logs.") from exc
+
+
 def project_repository(project: Project) -> tuple[str, str]:
     full_name = (project.github_repo_full_name or "").strip()
     if full_name.count("/") != 1:
@@ -336,12 +366,13 @@ async def analyze_failed_checks(
                 }
                 if total_chars < MAX_LOG_CHARS:
                     try:
-                        log_response = await github_request(
-                            client, "GET",
+                        archive = await github_download_bounded(
+                            client,
                             f"{GITHUB_API}/repos/{owner}/{repo}/actions/jobs/{job['id']}/logs",
                             token,
+                            MAX_LOG_ARCHIVE_BYTES,
                         )
-                        logs = redact_secrets(extract_job_logs(log_response.content))
+                        logs = redact_secrets(extract_job_logs(archive))
                         remaining = MAX_LOG_CHARS - total_chars
                         job_item["logs"] = logs[:remaining]
                         total_chars += len(job_item["logs"])
