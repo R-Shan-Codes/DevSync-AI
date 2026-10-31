@@ -82,6 +82,22 @@ def test_ai_conversations_and_human_override_are_persistent(client):
     assert override.json()["status"] == "rejected"
     assert client.get(f"/api/v1/projects/{pid}/ai/recommendations", headers=headers).json()[0]["status"] == "rejected"
 
+    modified = client.post(f"/api/v1/projects/{pid}/ai/recommendations", headers=headers, json={
+        "task_id": task["id"], "recommendation_type": "task_status",
+        "proposed_value": "ready_for_testing", "rationale": "Initial recommendation"
+    }).json()
+    missing_value = client.post(
+        f"/api/v1/projects/{pid}/ai/recommendations/{modified['id']}/override", headers=headers,
+        json={"decision": "modified", "reason": "Keep the task in progress"}
+    )
+    assert missing_value.status_code == 422
+    changed = client.post(
+        f"/api/v1/projects/{pid}/ai/recommendations/{modified['id']}/override", headers=headers,
+        json={"decision": "modified", "reason": "A final review remains", "replacement_value": "in_progress"}
+    )
+    assert changed.status_code == 200
+    assert changed.json()["replacement_value"] == "in_progress"
+
 
 def test_developer_handover_is_persisted(client):
     headers, project, _, _ = create_project_and_tasks(client, "handover@example.com")
