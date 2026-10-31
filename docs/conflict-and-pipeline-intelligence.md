@@ -72,3 +72,12 @@ The Tasks tab now includes a unified collaboration workspace for each selected t
 The UI hides or disables actions when the current member lacks the corresponding permission, while the backend remains authoritative and enforces permissions and project/task ownership. Recording a review, test run or bug does not automatically transition a task, close an issue, approve a release or merge code. The existing explicit task transition API remains the workflow authority.
 
 Backend regression coverage in `backend/tests/test_collaboration_workflow.py` verifies evidence creation, pipeline visibility, cross-project task isolation and test-count validation.
+
+
+## VS Code → backend → dashboard synchronization
+
+The VS Code extension now emits workspace-opened, branch-changed and commit-created metadata in addition to file-change metadata. It polls the active workspace's Git branch and latest commit every 15 seconds, batches event ingestion through the authenticated project API and retains failed batches for retry. It uploads commit metadata only; it does not upload source code or diffs.
+
+The backend persists valid commit-created events as Git events with project-scoped commit-hash deduplication. This connects editor-observed commits to the existing commit-to-task matching flow: the dashboard proposes heuristic task matches, and a member with edit permission explicitly confirms a link. No task association is silently created.
+
+The dashboard's project WebSocket now triggers refreshes of the Activity timeline, AI Development Intelligence and Development Pipeline. The Activity timeline combines project activity records with individual developer events. This keeps connected clients synchronized without treating a WebSocket notification as the source of truth; views re-fetch persisted records from the API.
