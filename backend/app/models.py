@@ -196,3 +196,26 @@ class HandoverRecord(Base):
  pending_items:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
  blockers:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class BugReport(TimestampMixin,Base):
+ __tablename__='bug_reports'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ reporter_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ title:Mapped[str]=mapped_column(String(180),nullable=False)
+ description:Mapped[str]=mapped_column(Text,nullable=False)
+ severity:Mapped[str]=mapped_column(String(20),default='medium',nullable=False)
+ status:Mapped[str]=mapped_column(String(20),default='open',index=True,nullable=False)
+ resolution:Mapped[str]=mapped_column(Text,default='',nullable=False)
+
+class BugAnalysis(Base):
+ __tablename__='bug_analyses'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ bug_id:Mapped[str]=mapped_column(ForeignKey('bug_reports.id',ondelete='CASCADE'),index=True,nullable=False)
+ analyzer_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ summary:Mapped[str]=mapped_column(Text,nullable=False)
+ impacts:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
