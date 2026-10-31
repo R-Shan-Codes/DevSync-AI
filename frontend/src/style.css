@@ -22,3 +22,7 @@
 .pipeline-gates{display:flex;flex-wrap:wrap;gap:7px}
 .pipeline-gates .role{font-size:11px}
 .pipeline-center .stats-grid{margin-top:14px}
+
+.pipeline-assignment{display:grid;gap:6px;padding:10px 12px;border-radius:9px;background:var(--surface-2,rgba(127,127,127,.08))}
+.pipeline-assignment>b{font-size:12px}
+.pipeline-assignment small{display:block}
