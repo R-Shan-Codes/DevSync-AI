@@ -50,3 +50,14 @@ class ConflictAnalyzeRequest(BaseModel):
  repository_path:str=Field(min_length=1,max_length=500)
  target_ref:str=Field(min_length=1,max_length=255)
  source_ref:str=Field(min_length=1,max_length=255)
+
+class BugReportCreate(BaseModel):
+ task_id:str
+ title:str=Field(min_length=3,max_length=180)
+ description:str=Field(min_length=5,max_length=10000)
+ severity:str=Field(default='medium',pattern='^(low|medium|high|critical)$')
+class BugReportUpdate(BaseModel):
+ status:str=Field(pattern='^(open|triaged|fixed|verified|closed)$')
+class BugReportRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;task_id:str;reporter_id:str;title:str;description:str;severity:str;status:str;created_at:datetime
