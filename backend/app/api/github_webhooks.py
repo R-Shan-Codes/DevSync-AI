@@ -27,6 +27,9 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
     ref = str(payload.get("ref") or "")
     branch = ref.removeprefix("refs/heads/")[:255] or "unknown"
     repository = project.github_repo_full_name or ""
+    sender = payload.get("sender") or {}
+    if not isinstance(sender, dict):
+        sender = {}
     created_events = []
     commits = payload.get("commits") or []
     if not isinstance(commits, list):
@@ -85,7 +88,7 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
             "after": str(payload.get("after") or "")[:40],
             "commits_received": len(payload.get("commits") or []),
             "new_commits": len(created_events),
-            "sender": (payload.get("sender") or {}).get("login", "unknown"),
+            "sender": str(sender.get("login") or "unknown")[:100],
         }),
     ))
     created_events.append({
