@@ -1,9 +1,11 @@
+import io
 import json
+import zipfile
 
 from app.core.database import get_db
 from app.main import app
 from app.models import AIReviewArtifact, Project, User
-from app.api.github_ai import normalize_findings, parse_ai_json, redact_secrets
+from app.api.github_ai import extract_job_logs, normalize_findings, parse_ai_json, redact_secrets
 
 
 def register(client, email):
@@ -190,3 +192,31 @@ def test_ai_github_task_link_rejects_foreign_project_task(client):
         json={"task_id": foreign_task["id"]},
     )
     assert response.status_code == 404
+
+
+def test_ai_github_redacts_bearer_jwt_slack_and_npm_tokens():
+    value = (
+        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 "
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturevalue123456 "
+        "xoxb-1234567890-abcdefghijk npm_abcdefghijklmnopqrstuvwxyz123456"
+    )
+    redacted = redact_secrets(value)
+    assert "abcdefghijklmnopqrstuvwxyz123456" not in redacted
+    assert "eyJhbGciOiJIUzI1NiJ9" not in redacted
+    assert "xoxb-1234567890-abcdefghijk" not in redacted
+    assert "npm_abcdefghijklmnopqrstuvwxyz123456" not in redacted
+
+
+def test_github_job_log_extraction_is_bounded_and_ignores_non_log_files():
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+        zipped.writestr("logs/step.txt", "First failure: assertion mismatch")
+        zipped.writestr("logs/binary.bin", "should not be included")
+    result = extract_job_logs(archive.getvalue())
+    assert "First failure: assertion mismatch" in result
+    assert "should not be included" not in result
+
+
+def test_github_job_log_extraction_rejects_oversized_and_invalid_archives():
+    assert "10 MB safety limit" in extract_job_logs(b"x" * 10_000_001)
+    assert "could not be decoded safely" in extract_job_logs(b"not a zip archive")
