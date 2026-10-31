@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member, record_activity
 from app.models import User
+from app.schemas import ConflictAnalyzeRequest
 from app.permissions import require_permission
 from app.realtime import manager
 
@@ -76,7 +77,7 @@ def _changed_files(repo: Path, base: str, ref: str) -> list[str]:
 @router.post("/analyze")
 async def analyze_conflicts(
     project_id: str,
-    data: dict,
+    data: ConflictAnalyzeRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -84,13 +85,9 @@ async def analyze_conflicts(
     _, member = get_project_member(project_id, db, user)
     require_permission(member, "view")
 
-    repository_path = str(data.get("repository_path", "")).strip()
-    target_ref = str(data.get("target_ref", "")).strip()
-    source_ref = str(data.get("source_ref", "")).strip()
-    if not repository_path or len(repository_path) > 500:
-        raise HTTPException(status_code=422, detail="repository_path is required (maximum 500 characters)")
-    if not target_ref or not source_ref:
-        raise HTTPException(status_code=422, detail="target_ref and source_ref are required")
+    repository_path = data.repository_path.strip()
+    target_ref = data.target_ref.strip()
+    source_ref = data.source_ref.strip()
     if target_ref == source_ref:
         raise HTTPException(status_code=422, detail="Choose two different Git references")
 
