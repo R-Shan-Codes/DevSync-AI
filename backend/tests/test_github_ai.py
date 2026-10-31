@@ -401,3 +401,88 @@ def test_pull_request_review_route_uses_linked_repo_and_redacts_diff_before_gemi
     finally:
         generator.close()
     asyncio.run(real_client.aclose())
+
+
+def test_failed_ci_analysis_route_downloads_bounded_logs_and_redacts_before_gemini(
+    client, monkeypatch
+):
+    headers = register(client, "github-ai-mocked-ci@example.com")
+    project = client.post(
+        "/api/v1/projects", headers=headers, json={"name": "Mocked CI diagnosis"}
+    ).json()
+    _connect_github_for_test(client, "github-ai-mocked-ci@example.com", project["id"], monkeypatch)
+
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+        zipped.writestr(
+            "job/backend-test.txt",
+            "Run tests\nAssertionError: token=ci_supersecret_value_123456\n",
+        )
+    captured = {}
+
+    def github_handler(request):
+        captured.setdefault("github_requests", []).append(request)
+        if request.url.path.endswith("/actions/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{
+                "id": 101,
+                "name": "Backend CI",
+                "run_number": 3,
+                "html_url": "https://github.com/acme/devsync/actions/runs/101",
+                "conclusion": "failure",
+            }]})
+        if request.url.path.endswith("/actions/runs/101/jobs"):
+            return httpx.Response(200, json={"jobs": [{
+                "id": 202,
+                "name": "backend-tests",
+                "conclusion": "failure",
+                "steps": [{"name": "Run backend tests", "conclusion": "failure"}],
+            }]})
+        if request.url.path.endswith("/actions/jobs/202/logs"):
+            return httpx.Response(200, content=archive.getvalue())
+        return httpx.Response(404, json={"message": "unexpected request"})
+
+    real_client = httpx.AsyncClient(
+        transport=httpx.MockTransport(github_handler), follow_redirects=True
+    )
+    monkeypatch.setattr(github_ai.httpx, "AsyncClient", lambda **kwargs: real_client)
+
+    async def fake_gemini(instruction, evidence):
+        captured["evidence"] = evidence
+        return {
+            "summary": "CI failure diagnosed from mocked logs.",
+            "findings": [{
+                "severity": "high",
+                "title": "Backend test failed",
+                "file": "",
+                "line": None,
+                "explanation": "The log contains an assertion failure.",
+                "recommendation": "Inspect the failing assertion.",
+                "confidence": 0.9,
+            }],
+        }
+
+    monkeypatch.setattr(github_ai, "gemini_analysis", fake_gemini)
+    commit_sha = "a" * 40
+    response = client.post(
+        f"/api/v1/github/projects/{project['id']}/checks/{commit_sha}/analyze",
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["summary"] == "CI failure diagnosed from mocked logs."
+    assert "ci_supersecret_value_123456" not in captured["evidence"]
+    assert "[REDACTED_SECRET]" in captured["evidence"]
+    assert any(
+        request.url.path.endswith("/actions/jobs/202/logs")
+        for request in captured["github_requests"]
+    )
+
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        artifact = db.query(AIReviewArtifact).filter_by(
+            project_id=project["id"], artifact_type="ci_failure_analysis"
+        ).one()
+        assert artifact.source_key == f"commit:{commit_sha}"
+    finally:
+        generator.close()
+    asyncio.run(real_client.aclose())
