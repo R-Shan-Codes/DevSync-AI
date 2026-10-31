@@ -37,6 +37,25 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.commands.registerCommand('devsync.githubStatus', githubStatus))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGitHub', syncGitHub))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.open', (task: Task) => vscode.window.showInformationMessage(`${task.title}\nStatus: ${task.status}`)))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.changeStatus', async (task: Task) => {
+    if (!task) return
+    const next: Record<string,string[]> = {backlog:['in_progress','cancelled'],in_progress:['submitted','cancelled'],submitted:['in_review','in_progress'],in_review:['approved','in_progress'],approved:['ready_for_testing'],ready_for_testing:['testing'],testing:['passed','failed'],failed:['in_progress'],passed:['ready_for_merge'],ready_for_merge:['merged']}
+    const choices=(next[task.status]||[]).map(value=>({label:value.replaceAll('_',' '),value}))
+    if(!choices.length){vscode.window.showInformationMessage('No next workflow stage is available for this task.');return}
+    const selected=await vscode.window.showQuickPick(choices,{placeHolder:'Select the next task status'})
+    if(!selected)return
+    try{await api!.updateTaskStatus(task.id,selected.value);vscode.window.showInformationMessage(`Task moved to ${selected.value.replaceAll('_',' ')}`);await refresh()}catch(e){vscode.window.showErrorMessage(message(e))}
+  }))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.reportBug', async (task: Task) => {
+    if(!task)return
+    const title=await vscode.window.showInputBox({prompt:'Bug title',placeHolder:'Short description of the defect',ignoreFocusOut:true})
+    if(!title?.trim())return
+    const description=await vscode.window.showInputBox({prompt:'Steps to reproduce and observed behavior',placeHolder:'Expected result, actual result, reproduction steps',ignoreFocusOut:true})
+    if(!description?.trim())return
+    const severity=await vscode.window.showQuickPick(['low','medium','high','critical'],{placeHolder:'Select bug severity'})
+    if(!severity)return
+    try{await api!.reportBug(task.id,title.trim(),description.trim(),severity);vscode.window.showInformationMessage('Bug report submitted to DevSync');await refresh()}catch(e){vscode.window.showErrorMessage(message(e))}
+  }))
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
   watcher.onDidChange(() => refresh()); watcher.onDidCreate(() => refresh()); watcher.onDidDelete(() => refresh())
   context.subscriptions.push(watcher)
