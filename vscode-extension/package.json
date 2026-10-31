@@ -57,6 +57,14 @@
       {
         "command": "devsync.tasks.reportBug",
         "title": "DevSync: Report Bug for Task"
+      },
+      {
+        "command": "devsync.aiAssist",
+        "title": "DevSync: Ask AI Role Assistant"
+      },
+      {
+        "command": "devsync.showNotifications",
+        "title": "DevSync: Show Notifications"
       }
     ],
     "views": {
