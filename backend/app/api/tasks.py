@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.dependencies import get_current_user,get_project_member,record_activity
-from app.models import ProjectMember,ProjectRole,Task,TaskStatus,User
-from app.schemas import TaskCreate,TaskRead,TaskUpdate
+from app.models import ProjectMember,ProjectRole,Task,TaskComment,TaskStatus,User
+from app.schemas import TaskCommentCreate,TaskCommentRead,TaskCreate,TaskRead,TaskUpdate
 from app.realtime import manager
 from app.permissions import require_permission
 router=APIRouter(prefix='/projects/{project_id}/tasks',tags=['tasks'])
@@ -14,7 +14,7 @@ async def create_task(project_id:str,data:TaskCreate,db:Session=Depends(get_db),
  _,m=get_project_member(project_id,db,user)
  require_permission(m,'edit')
  if data.assignee_id and not db.scalar(select(ProjectMember).where(ProjectMember.project_id==project_id,ProjectMember.user_id==data.assignee_id)): raise HTTPException(status_code=400,detail='Assignee must be a project member')
- t=Task(project_id=project_id,title=data.title.strip(),description=data.description,assignee_id=data.assignee_id,created_by_id=user.id);db.add(t);record_activity(db,project_id,user.id,'task.created',{'title':t.title});db.commit();db.refresh(t);await manager.broadcast(project_id,{'type':'task.created','data':{'id':t.id,'title':t.title,'status':t.status.value}});return t
+ t=Task(project_id=project_id,title=data.title.strip(),description=data.description,assignee_id=data.assignee_id,created_by_id=user.id,priority=data.priority,due_date=data.due_date);db.add(t);record_activity(db,project_id,user.id,'task.created',{'title':t.title});db.commit();db.refresh(t);await manager.broadcast(project_id,{'type':'task.created','data':{'id':t.id,'title':t.title,'status':t.status.value}});return t
 @router.get('',response_model=list[TaskRead])
 def list_tasks(project_id:str,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
  get_project_member(project_id,db,user);return db.scalars(select(Task).where(Task.project_id==project_id).order_by(Task.created_at.desc())).all()
@@ -36,5 +36,26 @@ async def update_task(project_id:str,task_id:str,data:TaskUpdate,db:Session=Depe
   if new==TaskStatus.merged: require_permission(m,'merge')
   record_activity(db,project_id,user.id,'task.status_changed',{'task_id':t.id,'from':t.status.value,'to':new.value})
  for key,value in changes.items():
-  if value is not None: setattr(t,key,value)
+  if value is not None or key=='due_date': setattr(t,key,value)
  db.commit();db.refresh(t);await manager.broadcast(project_id,{'type':'task.updated','data':{'id':t.id,'title':t.title,'status':t.status.value}});return t
+
+
+@router.get('/{task_id}/comments',response_model=list[TaskCommentRead])
+def list_task_comments(project_id:str,task_id:str,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+ get_project_member(project_id,db,user)
+ task=db.scalar(select(Task).where(Task.id==task_id,Task.project_id==project_id))
+ if not task: raise HTTPException(status_code=404,detail='Task not found')
+ return db.scalars(select(TaskComment).where(TaskComment.project_id==project_id,TaskComment.task_id==task_id).order_by(TaskComment.created_at.asc())).all()
+
+@router.post('/{task_id}/comments',response_model=TaskCommentRead,status_code=201)
+async def create_task_comment(project_id:str,task_id:str,data:TaskCommentCreate,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+ _,member=get_project_member(project_id,db,user)
+ require_permission(member,'edit')
+ task=db.scalar(select(Task).where(Task.id==task_id,Task.project_id==project_id))
+ if not task: raise HTTPException(status_code=404,detail='Task not found')
+ comment=TaskComment(project_id=project_id,task_id=task_id,author_id=user.id,body=data.body.strip())
+ db.add(comment)
+ record_activity(db,project_id,user.id,'task.comment_created',{'task_id':task_id,'comment_id':comment.id})
+ db.commit();db.refresh(comment)
+ await manager.broadcast(project_id,{'type':'task.comment_created','data':{'task_id':task_id,'comment_id':comment.id}})
+ return comment
