@@ -100,7 +100,7 @@ def normalize_findings(value) -> list[dict]:
 
 
 async def github_request(client: httpx.AsyncClient, method: str, url: str, token: str, **kwargs):
-    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]{20,}"),
+    headers = {**GITHUB_HEADERS, "Authorization": f"Bearer {token}", **kwargs.pop("headers", {})}
     try:
         response = await client.request(method, url, headers=headers, **kwargs)
     except httpx.HTTPError as exc:
