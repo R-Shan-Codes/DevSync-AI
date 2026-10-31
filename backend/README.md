@@ -31,3 +31,5 @@ AI analysis can be explicitly connected to a task from the analysis detail panel
 
 
 For deployment configuration, webhook delivery verification, OAuth troubleshooting, data-handling limits and live Gemini checks, follow [the live GitHub and Gemini integration runbook](../docs/live-github-ai-integration.md).
+
+For a live credential and repository-access check from the dashboard's GitHub tab, use **Run live checks**. It validates GitHub account/repository access and makes a small Gemini connectivity request; it cannot verify inbound public webhook delivery. See [the live integration runbook](../docs/live-github-ai-integration.md).
