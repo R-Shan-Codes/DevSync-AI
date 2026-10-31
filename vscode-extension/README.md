@@ -33,3 +33,10 @@ Authentication tokens are stored using VS Code SecretStorage, not workspace sett
 ## Verification
 
 Compile with `npm run compile`. Interactive API actions require a running backend, a valid account, project membership and the corresponding permission.
+
+
+## Automatic development activity synchronization
+
+When signed in with an active project selected, the extension batches workspace file metadata and periodically checks the first open workspace folder for Git metadata. It emits `workspace.opened`, `branch.changed` and `commit.created` events, including commit hash, message, author metadata, timestamp and branch. No source-file contents or diffs are uploaded. Git metadata is polled every 15 seconds; branch/commit changes are synchronized through the same authenticated development-event endpoint. Failed batches remain queued and retry while the extension is active.
+
+Commit events are persisted as project Git events, allowing the dashboard's existing heuristic commit-to-task suggestions to include commits observed directly by VS Code. A human must confirm any task link.
