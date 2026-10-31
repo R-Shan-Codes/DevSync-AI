@@ -22,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
     const email = await vscode.window.showInputBox({ prompt: 'DevSync account email', placeHolder: 'you@example.com' })
     const password = await vscode.window.showInputBox({ prompt: 'Password', password: true })
     if (!email || !password) return
-    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync'); await refresh() }
+    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync'); void flushDevEvents(); void syncGitMetadata(); await refresh() }
     catch (e) { vscode.window.showErrorMessage(message(e)) }
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.refresh', refresh))
