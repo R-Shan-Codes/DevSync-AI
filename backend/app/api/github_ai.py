@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.github_security import decrypt_token
+from app.core.github_security import cipher, decrypt_token
 from app.dependencies import get_current_user, get_project_member, record_activity
 from app.models import AIReviewArtifact, AIReviewTaskLink, GitHubAccount, Project, Task, User
 from app.permissions import require_permission
@@ -249,19 +249,20 @@ async def check_external_integrations(
     def add_check(key: str, label: str, status: str, detail: str):
         checks.append({"key": key, "label": label, "status": status, "detail": detail})
 
-    oauth_ready = bool(
-        settings.github_client_id
-        and settings.github_client_secret
-        and settings.github_token_encryption_key
-    )
-    add_check(
-        "github_oauth",
-        "GitHub OAuth configuration",
-        "passed" if oauth_ready else "failed",
-        "OAuth client credentials and token encryption key are configured."
+    oauth_credentials_ready = bool(settings.github_client_id and settings.github_client_secret)
+    try:
+        cipher()
+        encryption_key_ready = True
+    except HTTPException:
+        encryption_key_ready = False
+    oauth_ready = oauth_credentials_ready and encryption_key_ready
+    oauth_detail = (
+        "OAuth client credentials and a valid Fernet token encryption key are configured."
         if oauth_ready else
-        "Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and GITHUB_TOKEN_ENCRYPTION_KEY.",
+        "Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET; configure GITHUB_TOKEN_ENCRYPTION_KEY as a valid Fernet key."
     )
+    add_check("github_oauth", "GitHub OAuth configuration",
+              "passed" if oauth_ready else "failed", oauth_detail)
 
     account = db.scalar(select(GitHubAccount).where(GitHubAccount.user_id == user.id))
     token = None
