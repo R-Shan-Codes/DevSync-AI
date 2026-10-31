@@ -38,3 +38,8 @@ class TestRunCreate(BaseModel):
 class TestRunRead(BaseModel):
  model_config=ConfigDict(from_attributes=True)
  id:str;project_id:str;task_id:str;tester_id:str;result:str;summary:str;total:int;passed:int;failed:int;created_at:datetime
+
+class AIAssistRequest(BaseModel):
+ project_id:str
+ role:str=Field(pattern='^(coder|debugger|tester)$')
+ prompt:str=Field(min_length=2,max_length=12000)
