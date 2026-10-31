@@ -5,6 +5,7 @@ import zipfile
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.github_security import decrypt_token
 from app.dependencies import get_current_user, get_project_member, record_activity
-from app.models import AIReviewArtifact, GitHubAccount, Project, User
+from app.models import AIReviewArtifact, AIReviewTaskLink, GitHubAccount, Project, Task, User
 from app.permissions import require_permission
 from app.realtime import manager
 
@@ -341,6 +342,86 @@ async def analyze_failed_checks(
         "data": {"artifact_id": artifact.id, "commit_sha": commit_sha, "finding_count": len(analysis["findings"])},
     })
     return artifact_response(artifact)
+
+
+class AIReviewTaskLinkCreate(BaseModel):
+    task_id: str = Field(min_length=1, max_length=36)
+
+
+@router.post("/ai-analyses/{artifact_id}/tasks", status_code=201)
+def link_ai_analysis_to_task(
+    project_id: str,
+    artifact_id: str,
+    data: AIReviewTaskLinkCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _, member = get_project_member(project_id, db, user)
+    require_permission(member, "edit")
+    artifact = db.scalar(select(AIReviewArtifact).where(
+        AIReviewArtifact.id == artifact_id,
+        AIReviewArtifact.project_id == project_id,
+    ))
+    task = db.scalar(select(Task).where(
+        Task.id == data.task_id,
+        Task.project_id == project_id,
+    ))
+    if not artifact or not task:
+        raise HTTPException(status_code=404, detail="AI analysis and task must both belong to this project.")
+    row = db.scalar(select(AIReviewTaskLink).where(
+        AIReviewTaskLink.artifact_id == artifact_id,
+        AIReviewTaskLink.task_id == task.id,
+    ))
+    if row:
+        return {"id": row.id, "artifact_id": artifact_id, "task_id": task.id, "created": False}
+    row = AIReviewTaskLink(
+        artifact_id=artifact_id,
+        project_id=project_id,
+        task_id=task.id,
+        linked_by_id=user.id,
+    )
+    db.add(row)
+    record_activity(db, project_id, user.id, "ai.github_analysis_linked_to_task", {
+        "artifact_id": artifact_id,
+        "task_id": task.id,
+        "artifact_type": artifact.artifact_type,
+        "source_key": artifact.source_key,
+    })
+    db.commit()
+    db.refresh(row)
+    awaitable = manager.broadcast(project_id, {
+        "type": "ai.github_analysis.linked_to_task",
+        "data": {"artifact_id": artifact_id, "task_id": task.id},
+    })
+    # Broadcast is intentionally best-effort after the durable link is committed.
+    import asyncio
+    asyncio.create_task(awaitable)
+    return {"id": row.id, "artifact_id": artifact_id, "task_id": task.id, "created": True}
+
+
+@router.get("/ai-analyses/{artifact_id}/tasks")
+def list_ai_analysis_tasks(
+    project_id: str,
+    artifact_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    get_project_member(project_id, db, user)
+    artifact = db.scalar(select(AIReviewArtifact).where(
+        AIReviewArtifact.id == artifact_id,
+        AIReviewArtifact.project_id == project_id,
+    ))
+    if not artifact:
+        raise HTTPException(status_code=404, detail="AI analysis not found.")
+    rows = db.execute(
+        select(AIReviewTaskLink, Task)
+        .join(Task, Task.id == AIReviewTaskLink.task_id)
+        .where(AIReviewTaskLink.artifact_id == artifact_id,
+               AIReviewTaskLink.project_id == project_id)
+        .order_by(AIReviewTaskLink.created_at.desc())
+    ).all()
+    return [{"id": link.id, "task_id": task.id, "task_title": task.title,
+             "created_at": link.created_at.isoformat()} for link, task in rows]
 
 
 @router.get("/ai-analyses")
