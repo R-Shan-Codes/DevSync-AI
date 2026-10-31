@@ -44,3 +44,11 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 - GET /projects/{project_id}/intelligence/files — recent file-change metadata.
 - A valid 40-character Git commit hash in a commit.created event is also persisted as a project Git event (idempotent per project/commit), making it available to the existing commit-task suggestion and explicit commit-link endpoints.
 - The dashboard WebSocket at /ws/projects/{project_id} broadcasts event notifications; connected dashboard views refresh activity, development intelligence and pipeline data.
+
+
+## GitHub integration hardening
+- GitHub OAuth requests `repo read:user`; the access token is encrypted at rest with `GITHUB_TOKEN_ENCRYPTION_KEY` (Fernet).
+- POST /github/webhooks — HMAC-SHA256 authenticated; request body capped at 2 MB; exact repository matching; duplicate delivery and commit protection.
+- AI PR diff downloads are capped at 2 MB before text truncation/redaction. GitHub Actions log downloads are streamed with a 10 MB cap; ZIP extraction is limited to 20 log files and 45,000 characters.
+- Gemini API key is sent using the `x-goog-api-key` header. Common GitHub, Google, AWS, bearer, JWT, Slack and npm credential formats are redacted before analysis.
+- Live OAuth, webhook delivery and Gemini API verification are deployment-dependent; see `docs/live-github-ai-integration.md`.
