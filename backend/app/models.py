@@ -232,3 +232,15 @@ class GitHubWebhookDelivery(Base):
  payload_sha256:Mapped[str]=mapped_column(String(64),nullable=False)
  outcome:Mapped[str]=mapped_column(String(30),default='processed',nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class AIReviewArtifact(Base):
+ __tablename__='ai_review_artifacts'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ requester_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ artifact_type:Mapped[str]=mapped_column(String(40),index=True,nullable=False)
+ source_key:Mapped[str]=mapped_column(String(255),index=True,nullable=False)
+ summary:Mapped[str]=mapped_column(Text,nullable=False)
+ findings:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
