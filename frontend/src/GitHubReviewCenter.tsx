@@ -149,8 +149,9 @@ export default function GitHubReviewCenter({ token, projectId, canReview, canEdi
     <section className="panel github-integration-panel">
       <div className="panel-heading">
         <div><h3>Live integration diagnostics</h3><p className="muted">Check this project's GitHub connection, repository access and Gemini API configuration.</p></div>
-        <button className="primary" disabled={integrationBusy||!projectId} onClick={()=>void runIntegrationCheck()}>{integrationBusy?'Checking…':'Run live checks'}</button>
+        <button className="primary" disabled={integrationBusy||!projectId||!canReview} onClick={()=>void runIntegrationCheck()}>{integrationBusy?'Checking…':'Run live checks'}</button>
       </div>
+      {!canReview&&<small className="muted">Review permission is required to run live checks because Gemini connectivity testing uses the configured API.</small>}
       {integrationReport&&<div className="github-integration-results">
         <div className="github-integration-overall"><b>Overall status</b><span className={`github-integration-badge ${integrationReport.overall_status}`}>{integrationReport.overall_status}</span></div>
         {integrationReport.checks.map(check=><div className="github-integration-check" key={check.key}>
