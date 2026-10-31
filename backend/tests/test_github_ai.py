@@ -485,3 +485,87 @@ def test_failed_ci_analysis_route_downloads_bounded_logs_and_redacts_before_gemi
     finally:
         generator.close()
     asyncio.run(real_client.aclose())
+
+
+def test_integration_check_reports_missing_external_configuration(client, monkeypatch):
+    headers = register(client, "github-integration-preflight-missing@example.com")
+    project = client.post(
+        "/api/v1/projects", headers=headers, json={"name": "Integration preflight"}
+    ).json()
+    monkeypatch.setattr(settings, "github_client_id", "")
+    monkeypatch.setattr(settings, "github_client_secret", "")
+    monkeypatch.setattr(settings, "github_token_encryption_key", "")
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    monkeypatch.setattr(settings, "github_webhook_secret", "")
+
+    response = client.post(
+        f"/api/v1/github/projects/{project['id']}/integration-check",
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["overall_status"] == "failed"
+    statuses = {item["key"]: item["status"] for item in result["checks"]}
+    assert statuses["github_oauth"] == "failed"
+    assert statuses["github_account"] == "warning"
+    assert statuses["github_repository"] == "warning"
+    assert statuses["gemini"] == "failed"
+    assert statuses["github_webhook"] == "failed"
+
+
+def test_integration_check_validates_github_repository_and_gemini_without_exposing_secrets(
+    client, monkeypatch
+):
+    headers = register(client, "github-integration-preflight-live@example.com")
+    project = client.post(
+        "/api/v1/projects", headers=headers, json={"name": "Live integration preflight"}
+    ).json()
+    _connect_github_for_test(
+        client, "github-integration-preflight-live@example.com", project["id"], monkeypatch
+    )
+    monkeypatch.setattr(settings, "github_client_id", "test-oauth-client")
+    monkeypatch.setattr(settings, "github_client_secret", "oauth-secret-must-not-leak")
+    monkeypatch.setattr(settings, "gemini_api_key", "gemini-secret-must-not-leak")
+    monkeypatch.setattr(settings, "gemini_model", "gemini-test-model")
+    monkeypatch.setattr(settings, "github_webhook_secret", "webhook-secret-must-not-leak")
+
+    class FakeAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def request(self, method, url, headers, **kwargs):
+            if url.endswith("/user"):
+                return httpx.Response(200, json={"login": "integration-user"})
+            if url.endswith("/repos/acme/devsync"):
+                return httpx.Response(200, json={"full_name": "acme/devsync"})
+            return httpx.Response(404, json={"message": "unexpected request"})
+
+    monkeypatch.setattr(github_ai.httpx, "AsyncClient", FakeAsyncClient)
+
+    async def fake_gemini(instruction, evidence):
+        assert "connectivity_check" in evidence
+        return {"summary": "Connected", "findings": []}
+
+    monkeypatch.setattr(github_ai, "gemini_analysis", fake_gemini)
+    response = client.post(
+        f"/api/v1/github/projects/{project['id']}/integration-check",
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    statuses = {item["key"]: item["status"] for item in result["checks"]}
+    assert statuses["github_oauth"] == "passed"
+    assert statuses["github_account"] == "passed"
+    assert statuses["github_repository"] == "passed"
+    assert statuses["gemini"] == "passed"
+    assert statuses["github_webhook"] == "warning"
+    assert result["overall_status"] == "warning"
+    serialized = json.dumps(result)
+    assert "oauth-secret-must-not-leak" not in serialized
+    assert "gemini-secret-must-not-leak" not in serialized
+    assert "webhook-secret-must-not-leak" not in serialized
+    assert "mock-github-access-token" not in serialized
+    assert "cannot prove" in result["live_delivery_note"]
