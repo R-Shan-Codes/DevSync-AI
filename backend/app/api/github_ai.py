@@ -235,6 +235,110 @@ def artifact_response(artifact: AIReviewArtifact) -> dict:
     }
 
 
+@router.post("/integration-check")
+async def check_external_integrations(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Run an explicit, non-persistent live check of configured project integrations."""
+    project, member = get_project_member(project_id, db, user)
+    require_permission(member, "view")
+    checks = []
+
+    def add_check(key: str, label: str, status: str, detail: str):
+        checks.append({"key": key, "label": label, "status": status, "detail": detail})
+
+    oauth_ready = bool(
+        settings.github_client_id
+        and settings.github_client_secret
+        and settings.github_token_encryption_key
+    )
+    add_check(
+        "github_oauth",
+        "GitHub OAuth configuration",
+        "passed" if oauth_ready else "failed",
+        "OAuth client credentials and token encryption key are configured."
+        if oauth_ready else
+        "Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and GITHUB_TOKEN_ENCRYPTION_KEY.",
+    )
+
+    account = db.scalar(select(GitHubAccount).where(GitHubAccount.user_id == user.id))
+    token = None
+    if not account:
+        add_check("github_account", "GitHub account", "warning",
+                  "No GitHub account is connected. Connect one from the dashboard.")
+    else:
+        try:
+            token = decrypt_token(account.access_token_encrypted)
+            async with httpx.AsyncClient(timeout=15) as client:
+                profile_response = await github_request(client, "GET", f"{GITHUB_API}/user", token)
+            profile = profile_response.json()
+            add_check("github_account", "GitHub account", "passed",
+                      f"Authenticated successfully as @{str(profile.get('login') or account.login)[:100]}.")
+        except HTTPException as exc:
+            token = None
+            add_check("github_account", "GitHub account", "failed", exc.detail)
+        except (ValueError, KeyError, TypeError):
+            token = None
+            add_check("github_account", "GitHub account", "failed",
+                      "GitHub returned an invalid account response. Reconnect the account and retry.")
+
+    if not project.github_repo_full_name:
+        add_check("github_repository", "Linked repository", "warning",
+                  "No GitHub repository is linked to this project.")
+    elif not token:
+        add_check("github_repository", "Linked repository", "warning",
+                  "Repository access was not checked because the GitHub account is unavailable.")
+    else:
+        try:
+            owner, repo = project_repository(project)
+            async with httpx.AsyncClient(timeout=15) as client:
+                await github_request(client, "GET", f"{GITHUB_API}/repos/{owner}/{repo}", token)
+            add_check("github_repository", "Linked repository", "passed",
+                      f"Connected account can access {project.github_repo_full_name}.")
+        except HTTPException as exc:
+            add_check("github_repository", "Linked repository", "failed", exc.detail)
+
+    if not settings.gemini_api_key:
+        add_check("gemini", "Gemini API", "failed",
+                  "GEMINI_API_KEY is not configured on the backend.")
+    else:
+        try:
+            await gemini_analysis(
+                "Connectivity check only. Confirm that the model endpoint is reachable. "
+                "Do not analyze source code or invent findings.",
+                json.dumps({"purpose": "connectivity_check", "source_code": "none"}),
+            )
+            add_check("gemini", "Gemini API", "passed",
+                      f"Gemini model {settings.gemini_model} returned a valid structured response.")
+        except HTTPException as exc:
+            add_check("gemini", "Gemini API", "failed", exc.detail)
+
+    webhook_ready = bool(settings.github_webhook_secret)
+    add_check(
+        "github_webhook",
+        "GitHub webhook secret",
+        "warning" if webhook_ready else "failed",
+        "Webhook secret is configured. Public delivery still must be confirmed in GitHub Recent Deliveries."
+        if webhook_ready else
+        "GITHUB_WEBHOOK_SECRET is not configured on the backend.",
+    )
+
+    statuses = {item["status"] for item in checks}
+    overall = "failed" if "failed" in statuses else "warning" if "warning" in statuses else "passed"
+    return {
+        "project_id": project_id,
+        "overall_status": overall,
+        "checks": checks,
+        "live_delivery_note": (
+            "This check validates outbound GitHub access and Gemini connectivity. "
+            "It cannot prove that GitHub can reach this deployment's inbound webhook URL; "
+            "send a test delivery and inspect GitHub Recent Deliveries."
+        ),
+    }
+
+
 @router.post("/pull-requests/{pull_number}/review", status_code=201)
 async def review_pull_request(
     project_id: str,
