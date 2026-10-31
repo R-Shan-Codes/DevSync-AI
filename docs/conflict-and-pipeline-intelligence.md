@@ -51,3 +51,18 @@ Unassigned, active tasks now include up to three suggested owners. The recommend
 ## Persistent project context for the role assistant
 
 The role assistant now receives a bounded snapshot of recent code reviews, test runs, open bug reports, developer handovers and VS Code development-event metadata alongside tasks, activity and commits. This lets it reason from recorded delivery history. The assistant is instructed to distinguish evidence from inference and say when context is insufficient. Only a bounded recent subset is included in each request; this is not an unlimited transcript or repository-content index.
+
+
+## Collaborative delivery workspace
+
+The Tasks tab now includes a unified collaboration workspace for each selected task. It connects the existing project APIs rather than introducing a second workflow store:
+
+- **Ownership:** project managers with `manage_team` permission can assign a task to an active project member.
+- **Code review:** members with `review` permission can record an approval, change request or comment, including summary and findings.
+- **QA evidence:** members with `edit` permission can record passed, failed or blocked test runs with validated result counts and execution notes.
+- **Bug reporting:** members with `edit` permission can create severity-ranked bug reports linked to the selected task.
+- **Evidence history:** the selected task shows its persisted reviews, test runs and bug reports together.
+
+The UI hides or disables actions when the current member lacks the corresponding permission, while the backend remains authoritative and enforces permissions and project/task ownership. Recording a review, test run or bug does not automatically transition a task, close an issue, approve a release or merge code. The existing explicit task transition API remains the workflow authority.
+
+Backend regression coverage in `backend/tests/test_collaboration_workflow.py` verifies evidence creation, pipeline visibility, cross-project task isolation and test-count validation.
