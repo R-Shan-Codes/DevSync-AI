@@ -105,3 +105,7 @@
 .planning-empty{padding:18px;text-align:center;color:#8190aa;font-size:11px;border:1px dashed #34445f;border-radius:9px}
 @media(max-width:850px){.planning-card-grid{grid-template-columns:1fr}.planning-relationship-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.planning-form-grid,.planning-relationship-grid{grid-template-columns:1fr}.planning-form-grid .wide{grid-column:auto}.planning-task-row{align-items:flex-start;flex-direction:column}}
+
+
+/* Standalone public judge demo */
+.public-demo-shell{width:min(1120px,calc(100% - 40px));margin:0 auto;padding:32px 0 56px;min-height:100vh}.public-demo-shell .demo-workspace{gap:18px}.public-demo-shell .demo-banner{padding:26px 28px}.public-demo-shell .panel{margin:0}@media(max-width:640px){.public-demo-shell{width:calc(100% - 24px);padding:16px 0 32px}}
