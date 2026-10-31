@@ -37,7 +37,9 @@ def update_member(project_id:str,member_id:str,data:MemberUpdate,db:Session=Depe
  target=db.scalar(select(ProjectMember).where(ProjectMember.id==member_id,ProjectMember.project_id==project_id))
  if not target: raise HTTPException(status_code=404,detail='Project member not found')
  if target.user_id==user.id and data.role is not None: raise HTTPException(status_code=400,detail='You cannot change your own role')
- if data.role is not None: target.role=data.role
+ if data.role is not None:
+  target.role=data.role
+  if data.permissions is None: target.permissions='{}'
  if data.permissions is not None:
   if set(data.permissions)-set(PERMISSIONS): raise HTTPException(status_code=422,detail='Unknown permission')
   import json
