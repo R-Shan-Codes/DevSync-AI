@@ -1,8 +1,9 @@
 import * as vscode from 'vscode'
 export type Task = {id:string;title:string;description:string;status:string;assignee_id:string|null}
+export type Membership = {role:string;permissions:Record<string,boolean>}
 export class DevSyncApi {
   constructor(private context:vscode.ExtensionContext) {}
-  get hasToken() { return !!this.context.secrets.get('devsync.token') }
+  async hasToken(): Promise<boolean> { return Boolean(await this.context.secrets.get('devsync.token')) }
   get base() { return vscode.workspace.getConfiguration('devsync').get<string>('apiUrl','http://127.0.0.1:8000/api/v1').replace(/\/$/,'') }
   get dashboardUrl() { return this.base.replace(/\/api\/v1$/,'').replace('127.0.0.1','localhost') }
   private async token() { return await this.context.secrets.get('devsync.token') }
@@ -21,10 +22,16 @@ export class DevSyncApi {
     if(!response.ok) throw new Error(data.detail || `DevSync API error ${response.status}`)
     return data as T
   }
-  async tasks():Promise<Task[]> { const project=vscode.workspace.getConfiguration('devsync').get<string>('projectId','');if(!project)return [];return this.request(`/projects/${project}/tasks`) }
+  private projectId() { return vscode.workspace.getConfiguration('devsync').get<string>('projectId','').trim() }
+  async membership():Promise<Membership> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');return this.request(`/projects/${project}/members/me`) }
+  async githubAccount():Promise<{connected:boolean;login?:string}> { return this.request('/github/account') }
+  async syncGitHub():Promise<{repository:string;new_commits:number}> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission');return this.request(`/github/projects/${project}/sync`,{method:'POST'}) }
+  async tasks():Promise<Task[]> { const project=this.projectId();if(!project)return [];const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission for this project');return this.request(`/projects/${project}/tasks`) }
   async syncGit():Promise<any[]> {
-    const project=vscode.workspace.getConfiguration('devsync').get<string>('projectId','')
+    const project=this.projectId()
     if(!project) throw new Error('Set devsync.projectId in workspace settings first')
+    const member=await this.membership()
+    if(!member.permissions.view) throw new Error('Your DevSync role does not have View permission for this project')
     const folders=vscode.workspace.workspaceFolders
     if(!folders?.length) throw new Error('Open a Git workspace folder first')
     const root=folders[0].uri.fsPath

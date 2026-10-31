@@ -8,18 +8,25 @@ from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member
 from app.models import ActivityEvent, GitEvent, Task, TaskStatus, User
 from app.schemas import AIAssistRequest
+from app.permissions import normalize_role
 
 router = APIRouter(prefix="/ai", tags=["AI assistance"])
 ROLE_GUIDANCE = {
- "coder": "Act as a senior software engineer. Help implement features, explain code, and suggest maintainable solutions.",
- "debugger": "Act as a senior debugging engineer. Find likely root causes, prioritize evidence, and propose minimal safe fixes.",
- "tester": "Act as a senior QA engineer. Design meaningful test cases, edge cases, regression coverage, and failure diagnosis."
+ "team_leader_project_manager":"Act as a technical project manager. Prioritize delivery, clarify scope, dependencies and risks.",
+ "ui_ux_designer":"Act as a senior UI/UX designer. Improve user flows, accessibility, information architecture and visual consistency.",
+ "frontend_developer":"Act as a senior frontend engineer. Build accessible, maintainable interfaces and explain implementation tradeoffs.",
+ "backend_developer":"Act as a senior backend engineer. Design reliable APIs, data models and maintainable services.",
+ "tester_qa_engineer":"Act as a senior QA engineer. Design test cases, edge cases, regression coverage and failure diagnosis.",
+ "devops_engineer":"Act as a DevOps engineer. Improve CI/CD, deployments, observability and infrastructure reliability.",
+ "security_engineer":"Act as an application security engineer. Identify threats and recommend practical mitigations.",
+ "documentation_specialist":"Act as a technical writer. Produce accurate developer documentation and usage guidance.",
+ "coder":"Act as a senior software engineer.","debugger":"Act as a senior debugging engineer.","tester":"Act as a senior QA engineer."
 }
 
 @router.post("/assist")
 async def assist(data: AIAssistRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     project, member = get_project_member(data.project_id, db, user)
-    if data.role != member.role.value and member.role.value != "administrator":
+    if data.role != normalize_role(member.role):
         raise HTTPException(status_code=403, detail="You can only use the assistant for your assigned project role")
     if not settings.gemini_api_key:
         raise HTTPException(status_code=503, detail="AI is not configured. Add GEMINI_API_KEY to backend/.env and restart the API.")

@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member, record_activity
 from app.models import GitEvent, ProjectRole, User
 from app.realtime import manager
+from app.permissions import require_permission
 from app.schemas import GitSyncRequest, GitEventRead
 
 router = APIRouter(prefix="/projects/{project_id}/git", tags=["git"])
@@ -34,8 +35,7 @@ def run_git(repo: Path, *args: str) -> str:
 @router.post("/sync", response_model=list[GitEventRead])
 async def sync_git(project_id: str, data: GitSyncRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _, member = get_project_member(project_id, db, user)
-    if member.role not in {ProjectRole.coder, ProjectRole.debugger, ProjectRole.administrator}:
-        raise HTTPException(status_code=403, detail="Coder, debugger or administrator role required")
+    require_permission(member, 'view')
     repo = resolve_repository(data.repository_path)
     branch = run_git(repo, "branch", "--show-current")
     status = run_git(repo, "status", "--porcelain")

@@ -6,14 +6,14 @@ from app.dependencies import get_current_user, get_project_member, record_activi
 from app.models import CodeReview, ProjectRole, Task, User
 from app.realtime import manager
 from app.schemas import ReviewCreate, ReviewRead
+from app.permissions import require_permission
 
 router = APIRouter(prefix="/projects/{project_id}/reviews", tags=["reviews"])
 
 @router.post("", response_model=ReviewRead, status_code=201)
 async def create_review(project_id: str, data: ReviewCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _, member = get_project_member(project_id, db, user)
-    if member.role not in {ProjectRole.debugger, ProjectRole.administrator}:
-        raise HTTPException(status_code=403, detail="Debugger or administrator role required")
+    require_permission(member, 'review')
     if not db.scalar(select(Task).where(Task.id == data.task_id, Task.project_id == project_id)):
         raise HTTPException(status_code=404, detail="Task not found in this project")
     review = CodeReview(project_id=project_id, task_id=data.task_id, reviewer_id=user.id, decision=data.decision, summary=data.summary, findings=data.findings)

@@ -13,18 +13,29 @@ export function activate(context: vscode.ExtensionContext) {
     const email = await vscode.window.showInputBox({ prompt: 'DevSync account email', placeHolder: 'you@example.com' })
     const password = await vscode.window.showInputBox({ prompt: 'Password', password: true })
     if (!email || !password) return
-    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync AI'); await refresh() }
+    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync'); await refresh() }
     catch (e) { vscode.window.showErrorMessage(message(e)) }
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.refresh', refresh))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.setRole', async () => {
-    const role = await vscode.window.showQuickPick(['coder','debugger','tester','administrator'], { placeHolder: 'Select your role for this project' })
-    if (!role) return
-    await vscode.workspace.getConfiguration('devsync').update('role', role, vscode.ConfigurationTarget.Workspace)
-    vscode.window.showInformationMessage(`DevSync role set to ${role}`)
+    try {
+      const membership = await api!.membership()
+      const enabled = Object.entries(membership.permissions).filter(([, allowed]) => allowed).map(([name]) => name.replaceAll('_', ' ')).join(', ')
+      vscode.window.showInformationMessage(`DevSync project role: ${membership.role.replaceAll('_', ' ')}. Permissions: ${enabled}`)
+    } catch (e) { vscode.window.showErrorMessage(message(e)) }
+  }))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.selectProject', async () => {
+    const current = vscode.workspace.getConfiguration('devsync').get<string>('projectId', '')
+    const projectId = await vscode.window.showInputBox({ prompt: 'Enter the DevSync project ID', value: current, ignoreFocusOut: true })
+    if (!projectId?.trim()) return
+    await vscode.workspace.getConfiguration('devsync').update('projectId', projectId.trim(), vscode.ConfigurationTarget.Workspace)
+    await refresh()
+    vscode.window.showInformationMessage('DevSync project selected')
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(api!.dashboardUrl))))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGit', syncGit))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.githubStatus', githubStatus))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGitHub', syncGitHub))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.open', (task: Task) => vscode.window.showInformationMessage(`${task.title}\nStatus: ${task.status}`)))
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
   watcher.onDidChange(() => refresh()); watcher.onDidCreate(() => refresh()); watcher.onDidDelete(() => refresh())
@@ -33,8 +44,10 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push({ dispose: () => { if (poll) clearInterval(poll) } })
   refresh()
 }
-async function refresh() { try { if (!api) return; tree.setTasks(await api.tasks()); } catch (e) { if (api?.hasToken) vscode.window.setStatusBarMessage('DevSync: unable to refresh tasks', 5000) } }
-async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} new commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function refresh() { try { if (!api || !(await api.hasToken())) return; tree.setTasks(await api.tasks()); } catch (e) { vscode.window.setStatusBarMessage('DevSync: unable to refresh tasks', 5000) } }
+async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} local commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function githubStatus() { try { const account = await api!.githubAccount(); vscode.window.showInformationMessage(account.connected ? `GitHub connected as @${account.login}` : 'GitHub is not connected. Connect it from the DevSync dashboard.') } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function syncGitHub() { try { const result = await api!.syncGitHub(); vscode.window.showInformationMessage(`Synced ${result.new_commits} commits from ${result.repository}`); await refresh() } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 function message(e: unknown) { return e instanceof Error ? e.message : String(e) }
 class TaskProvider implements vscode.TreeDataProvider<TaskItem> {
   private emitter = new vscode.EventEmitter<TaskItem | undefined>()
