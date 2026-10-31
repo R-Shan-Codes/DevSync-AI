@@ -67,6 +67,7 @@ export default function PipelineCenter({ token, projectId }: { token: string; pr
         {task.prerequisites.length > 0 && <small>Waiting for: {task.prerequisites.map(item => `${item.title} (${label(item.status)})`).join(', ')}</small>}
         {task.latest_review && <small>Latest review: {label(task.latest_review.decision)}{task.latest_review.summary ? ` — ${task.latest_review.summary}` : ''}</small>}
         {task.latest_test_run && <small>Latest tests: {task.latest_test_run.passed}/{task.latest_test_run.total} passed · {task.latest_test_run.failed} failed</small>}
+        {task.latest_ai_review && <div className="pipeline-ai-evidence"><b>AI review evidence · advisory</b><small>{label(task.latest_ai_review.artifact_type)} · {task.latest_ai_review.source_key} · {task.latest_ai_review.finding_count} finding(s)</small><small>{task.latest_ai_review.summary}</small></div>}
         {task.open_bug_count > 0 && <small><CircleDot size={12}/> {task.open_bug_count} open bug(s)</small>}
       </article>) : <p className="muted">No tasks in this project yet.</p>}
     </section>
