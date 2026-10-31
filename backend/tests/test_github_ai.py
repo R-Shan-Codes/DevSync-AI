@@ -101,3 +101,92 @@ def test_ai_github_analysis_history_is_project_scoped(client):
     assert first_history.json()[0]["source_key"] == "pr:8"
     assert second_history.status_code == 200
     assert second_history.json() == []
+
+
+def test_ai_github_analysis_can_be_explicitly_linked_to_task(client):
+    headers = register(client, "github-ai-task-link@example.com")
+    project = client.post("/api/v1/projects", headers=headers, json={"name": "AI Task Link"}).json()
+    task = client.post(
+        f"/api/v1/projects/{project['id']}/tasks",
+        headers=headers,
+        json={"title": "Fix authentication token refresh"},
+    ).json()
+
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        user = db.query(User).filter_by(email="github-ai-task-link@example.com").one()
+        artifact = AIReviewArtifact(
+            project_id=project["id"],
+            requester_id=user.id,
+            artifact_type="pull_request_review",
+            source_key="pr:42",
+            summary="Potential token refresh race condition.",
+            findings=json.dumps([{"severity": "high", "title": "Refresh token race"}]),
+        )
+        db.add(artifact)
+        db.commit()
+        artifact_id = artifact.id
+    finally:
+        generator.close()
+
+    linked = client.post(
+        f"/api/v1/github/projects/{project['id']}/ai-analyses/{artifact_id}/tasks",
+        headers=headers,
+        json={"task_id": task["id"]},
+    )
+    assert linked.status_code == 201, linked.text
+    assert linked.json()["created"] is True
+
+    duplicate = client.post(
+        f"/api/v1/github/projects/{project['id']}/ai-analyses/{artifact_id}/tasks",
+        headers=headers,
+        json={"task_id": task["id"]},
+    )
+    assert duplicate.status_code == 201
+    assert duplicate.json()["created"] is False
+
+    listed = client.get(
+        f"/api/v1/github/projects/{project['id']}/ai-analyses/{artifact_id}/tasks",
+        headers=headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json()[0]["task_id"] == task["id"]
+    assert listed.json()[0]["task_title"] == task["title"]
+
+
+def test_ai_github_task_link_rejects_foreign_project_task(client):
+    owner = register(client, "github-ai-link-owner@example.com")
+    outsider = register(client, "github-ai-link-outsider@example.com")
+    project = client.post("/api/v1/projects", headers=owner, json={"name": "Owned project"}).json()
+    foreign_project = client.post("/api/v1/projects", headers=outsider, json={"name": "Foreign project"}).json()
+    foreign_task = client.post(
+        f"/api/v1/projects/{foreign_project['id']}/tasks",
+        headers=outsider,
+        json={"title": "Foreign task"},
+    ).json()
+
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        user = db.query(User).filter_by(email="github-ai-link-owner@example.com").one()
+        artifact = AIReviewArtifact(
+            project_id=project["id"],
+            requester_id=user.id,
+            artifact_type="ci_failure_analysis",
+            source_key="commit:" + "a" * 40,
+            summary="CI failed.",
+            findings="[]",
+        )
+        db.add(artifact)
+        db.commit()
+        artifact_id = artifact.id
+    finally:
+        generator.close()
+
+    response = client.post(
+        f"/api/v1/github/projects/{project['id']}/ai-analyses/{artifact_id}/tasks",
+        headers=owner,
+        json={"task_id": foreign_task["id"]},
+    )
+    assert response.status_code == 404
