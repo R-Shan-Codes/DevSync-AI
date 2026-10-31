@@ -43,3 +43,11 @@ npm run build
 ```
 
 These checks must run in the development environment; GitHub Actions results and local results should be reported separately.
+
+## Workflow coordination
+
+Unassigned, active tasks now include up to three suggested owners. The recommendation ranks active project members using task-keyword/role alignment and their count of active assigned tasks. It excludes inactive accounts and considers workload before display-name tie-breaking. These are transparent heuristics, not AI judgments or performance ratings. Suggestions never assign a task; a project member must make that decision through the existing task-management workflow.
+
+## Persistent project context for the role assistant
+
+The role assistant now receives a bounded snapshot of recent code reviews, test runs, open bug reports, developer handovers and VS Code development-event metadata alongside tasks, activity and commits. This lets it reason from recorded delivery history. The assistant is instructed to distinguish evidence from inference and say when context is insufficient. Only a bounded recent subset is included in each request; this is not an unlimited transcript or repository-content index.
