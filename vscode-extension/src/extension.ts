@@ -115,26 +115,35 @@ async function syncGitMetadata() {
       pendingEvents.push({ event_type: 'branch.changed', payload: { branch, repository_path: folder.name }, source: 'vscode' })
     }
     const logResult = await execFileAsync('git', [
-      '-C', root, 'log', '-1', '--format=%H%x1f%an%x1f%ae%x1f%cI%x1f%s'
+      '-C', root, 'log', '-n', '20', '--format=%H%x1f%an%x1f%ae%x1f%cI%x1f%s'
     ], { timeout: 5000, maxBuffer: 1024 * 1024 })
-    const [commitHash, author, authorEmail, committedAt, ...messageParts] = logResult.stdout.trim().split('\x1f')
-    const messageText = messageParts.join('\x1f')
-    if (/^[0-9a-f]{40}$/i.test(commitHash || '') && commitHash !== lastGitCommit) {
-      lastGitCommit = commitHash
+    const recent = logResult.stdout.trim().split(/\r?\n/).filter(Boolean).map(line => {
+      const [commitHash, author, authorEmail, committedAt, ...messageParts] = line.split('\x1f')
+      return { commitHash, author, authorEmail, committedAt, message: messageParts.join('\x1f') }
+    })
+    const fresh = []
+    for (const commit of recent) {
+      if (commit.commitHash === lastGitCommit) break
+      if (/^[0-9a-f]{40}$/i.test(commit.commitHash || '')) fresh.push(commit)
+    }
+    // On first connection, register the current HEAD only; do not import repository history implicitly.
+    if (!lastGitCommit && fresh.length > 1) fresh.splice(1)
+    for (const commit of fresh.reverse()) {
       pendingEvents.push({
         event_type: 'commit.created',
         payload: {
-          commit_hash: commitHash.toLowerCase(),
-          message: messageText,
-          author,
-          author_email: authorEmail,
-          committed_at: committedAt,
+          commit_hash: commit.commitHash.toLowerCase(),
+          message: commit.message,
+          author: commit.author,
+          author_email: commit.authorEmail,
+          committed_at: commit.committedAt,
           branch,
           repository_path: folder.name,
         },
         source: 'vscode',
       })
     }
+    if (recent[0]?.commitHash) lastGitCommit = recent[0].commitHash
     if (pendingEvents.length) await flushDevEvents()
   } catch {
     // A workspace without Git, or a temporarily unavailable Git executable, is not an extension error.
