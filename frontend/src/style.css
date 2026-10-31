@@ -13,3 +13,12 @@
 
 /* AI development intelligence */
 .intelligence-center{display:grid;gap:16px}.intelligence-center .welcome-row{margin:0}.intelligence-center .panel-heading h3{display:flex;align-items:center;gap:8px}.intelligence-center .stats-grid{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.intelligence-item{padding:14px 0;border-top:1px solid #202b40;display:grid;gap:8px}.intelligence-item-main{display:flex;justify-content:space-between;align-items:center;gap:12px}.intelligence-item-main>div,.intelligence-item>div:first-child{display:grid;gap:5px}.intelligence-item b{font-size:12px}.intelligence-item small{font-size:10px;color:#8190aa;overflow-wrap:anywhere}.intelligence-item p{font-size:12px;line-height:1.6;color:#b6c3d9;margin:0}.status-chip{font-size:9px;text-transform:uppercase;border-radius:20px;padding:5px 8px;background:#26334b;color:#aebbd1}.status-chip.accepted{background:#173b32;color:#8ce0bb}.status-chip.rejected{background:#48252d;color:#ffb7c1}.intelligence-actions{display:flex;gap:14px;align-items:center}.intelligence-actions button{display:inline-flex;align-items:center;gap:5px}.commit-candidate{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;margin-top:8px;background:#0d1729;border:1px solid #263550;border-radius:8px}.commit-candidate>div{display:grid;gap:5px;min-width:0}.commit-candidate .primary{white-space:nowrap;padding:8px 10px;font-size:10px}.intelligence-notice{padding:10px;border:1px solid #285746;background:#17362f;color:#9ce3c5;border-radius:8px;font-size:12px}@media(max-width:650px){.commit-candidate{align-items:flex-start;flex-direction:column}.intelligence-item-main{align-items:flex-start;flex-direction:column}}
+
+
+/* Development pipeline and conflict intelligence */
+.pipeline-task{border:1px solid var(--border,#2b3445);border-radius:12px;padding:16px;margin:12px 0;display:grid;gap:9px}
+.pipeline-task .panel-heading{margin:0}
+.pipeline-task small{display:flex;align-items:center;gap:6px;color:var(--muted,#9aa4b2);overflow-wrap:anywhere}
+.pipeline-gates{display:flex;flex-wrap:wrap;gap:7px}
+.pipeline-gates .role{font-size:11px}
+.pipeline-center .stats-grid{margin-top:14px}
