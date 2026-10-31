@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -39,14 +39,11 @@ def list_notifications(
     if unread_only:
         statement = statement.where(Notification.read_at.is_(None))
     rows = db.execute(statement.order_by(Notification.created_at.desc()).limit(limit)).all()
-    unread_count = db.scalar(
-        select(Notification.id).where(
+    count = db.scalar(
+        select(func.count()).select_from(Notification).where(
             Notification.user_id == user.id, Notification.read_at.is_(None)
-        ).limit(1)
-    )
-    count = len(db.scalars(select(Notification.id).where(
-        Notification.user_id == user.id, Notification.read_at.is_(None)
-    )).all())
+        )
+    ) or 0
     return {
         "items": [_serialize(notification, project_name) for notification, project_name in rows],
         "unread_count": count,
