@@ -1,4 +1,8 @@
-from test_api import auth
+def auth(client,email='dev@example.com'):
+    client.post('/api/v1/auth/register',json={'email':email,'display_name':'Dev','password':'secure-pass-123'})
+    token=client.post('/api/v1/auth/login',data={'username':email,'password':'secure-pass-123'}).json()['access_token']
+    return {'Authorization':f'Bearer {token}'}
+
 
 
 def test_task_priority_due_date_and_comments(client):
