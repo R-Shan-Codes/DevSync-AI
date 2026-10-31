@@ -75,3 +75,10 @@ def git_events(project_id: str, limit: int = 50, db: Session = Depends(get_db), 
     if not 1 <= limit <= 200:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 200")
     return db.scalars(select(GitEvent).where(GitEvent.project_id == project_id).order_by(GitEvent.created_at.desc()).limit(limit)).all()
+
+@router.get("/branches")
+def git_branches(project_id: str, repository_path: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    get_project_member(project_id, db, user)
+    repo = resolve_repository(repository_path)
+    raw = run_git(repo, "branch", "--format=%(refname:short)%09%(HEAD)")
+    return [{"name": line.split("\t", 1)[0], "current": line.endswith("*")} for line in raw.splitlines() if line.strip()]
