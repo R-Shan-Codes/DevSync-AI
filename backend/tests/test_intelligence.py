@@ -111,3 +111,35 @@ def test_developer_handover_is_persisted(client):
     history = client.get(f"/api/v1/projects/{pid}/handover", headers=headers)
     assert history.status_code == 200
     assert history.json()[0]["pending_items"] == ["Add integration test"]
+
+
+def test_bug_reporting_and_dependency_impact_analysis(client):
+    headers, project, prerequisite, downstream = create_project_and_tasks(client, "bug-impact@example.com")
+    pid = project["id"]
+    dependency = client.post(
+        f"/api/v1/projects/{pid}/tasks/{downstream['id']}/dependencies",
+        headers=headers, json={"depends_on_task_id": prerequisite["id"]}
+    )
+    assert dependency.status_code == 201
+    bug = client.post(f"/api/v1/projects/{pid}/bugs", headers=headers, json={
+        "task_id": prerequisite["id"],
+        "title": "Authentication fails after token refresh",
+        "description": "Refreshing an expired token returns an unexpected 500 response.",
+        "severity": "high"
+    })
+    assert bug.status_code == 201, bug.text
+    bug_id = bug.json()["id"]
+    impact = client.post(f"/api/v1/projects/{pid}/bugs/{bug_id}/analyze-impact", headers=headers)
+    assert impact.status_code == 201, impact.text
+    impacted_ids = {item["task_id"] for item in impact.json()["impacts"]}
+    assert prerequisite["id"] in impacted_ids
+    assert downstream["id"] in impacted_ids
+    assert "No task status was changed" in impact.json()["warning"]
+    current = client.get(f"/api/v1/projects/{pid}/tasks", headers=headers).json()
+    assert {task["id"]: task["status"] for task in current}[downstream["id"]] == "backlog"
+
+    updated = client.patch(f"/api/v1/projects/{pid}/bugs/{bug_id}", headers=headers, json={
+        "status": "in_progress", "resolution": ""
+    })
+    assert updated.status_code == 200
+    assert client.get(f"/api/v1/projects/{pid}/bugs?status=in_progress", headers=headers).json()[0]["id"] == bug_id
