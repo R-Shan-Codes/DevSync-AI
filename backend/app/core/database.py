@@ -31,3 +31,6 @@ def init_db():
   with engine.begin() as connection:
    if 'priority' not in columns: connection.execute(text("ALTER TABLE tasks ADD COLUMN priority VARCHAR(10) NOT NULL DEFAULT 'medium'"))
    if 'due_date' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN due_date DATE'))
+   if 'cycle_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN cycle_id VARCHAR(36) REFERENCES cycles(id) ON DELETE SET NULL'))
+   if 'milestone_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN milestone_id VARCHAR(36) REFERENCES milestones(id) ON DELETE SET NULL'))
+   if 'parent_task_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN parent_task_id VARCHAR(36) REFERENCES tasks(id) ON DELETE SET NULL'))
