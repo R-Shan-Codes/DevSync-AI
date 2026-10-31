@@ -30,8 +30,9 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 
 
 ## AI GitHub review and CI diagnosis
-- POST /github/projects/{project_id}/pull-requests/{pull_number}/review — fetches the linked repository pull-request diff and creates a persisted Gemini-assisted review. Requires project review permission and a connected GitHub account with repository access.
-- POST /github/projects/{project_id}/checks/{commit_sha}/analyze — finds failed Actions runs for a commit, collects failed job/step evidence and available logs, and creates a persisted Gemini diagnosis. Requires project membership and a connected GitHub account with Actions log access.
-- GET /github/projects/{project_id}/ai-analyses?limit=20 — lists persisted AI review and CI diagnosis history for project members.
-
-AI analysis requires GEMINI_API_KEY. Diffs/logs are truncated and common credential patterns are redacted before sending to Gemini. AI findings are advisory, require human verification, and never approve, merge, or modify code.
+- POST /github/projects/{project_id}/pull-requests/{pull_number}/review — creates a persisted Gemini-assisted review.
+- POST /github/projects/{project_id}/checks/{commit_sha}/analyze — analyzes failed GitHub Actions evidence.
+- GET /github/projects/{project_id}/ai-analyses — lists project-scoped analysis history.
+- POST /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — explicitly links an analysis to a task; requires project edit permission.
+- GET /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — lists task links for an analysis.
+- GET /projects/{project_id}/pipeline — includes the latest task-linked AI analysis as advisory evidence. AI findings do not automatically create bugs, block tasks, change statuses, approve or merge.
