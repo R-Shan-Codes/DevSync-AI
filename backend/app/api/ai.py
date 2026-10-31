@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member
-from app.models import ActivityEvent, CodeReview, DevelopmentEvent, FileChange, GitEvent, ProjectMember, Task, TaskStatus, TestRun, User
+from app.models import ActivityEvent, BugReport, CodeReview, DevelopmentEvent, FileChange, GitEvent, HandoverRecord, ProjectMember, Task, TaskStatus, TestRun, User
 from app.schemas import AIAssistRequest
 from app.permissions import normalize_role
 
@@ -33,13 +33,23 @@ async def assist(data: AIAssistRequest, db: Session = Depends(get_db), user: Use
     tasks = db.scalars(select(Task).where(Task.project_id == project.id).order_by(Task.updated_at.desc()).limit(20)).all()
     activity = db.scalars(select(ActivityEvent).where(ActivityEvent.project_id == project.id).order_by(ActivityEvent.created_at.desc()).limit(15)).all()
     commits = db.scalars(select(GitEvent).where(GitEvent.project_id == project.id).order_by(GitEvent.created_at.desc()).limit(10)).all()
+    reviews = db.scalars(select(CodeReview).where(CodeReview.project_id == project.id).order_by(CodeReview.created_at.desc()).limit(8)).all()
+    test_runs = db.scalars(select(TestRun).where(TestRun.project_id == project.id).order_by(TestRun.created_at.desc()).limit(8)).all()
+    bugs = db.scalars(select(BugReport).where(BugReport.project_id == project.id, BugReport.status == "open").order_by(BugReport.updated_at.desc()).limit(8)).all()
+    handovers = db.scalars(select(HandoverRecord).where(HandoverRecord.project_id == project.id).order_by(HandoverRecord.created_at.desc()).limit(5)).all()
+    development_events = db.scalars(select(DevelopmentEvent).where(DevelopmentEvent.project_id == project.id).order_by(DevelopmentEvent.created_at.desc()).limit(10)).all()
     context = {
       "project": {"name": project.name, "description": project.description},
       "tasks": [{"title": t.title, "status": t.status.value, "description": t.description} for t in tasks],
       "recent_activity": [{"type": a.event_type, "payload": json.loads(a.payload)} for a in activity],
-      "recent_commits": [{"branch": c.branch, "message": c.message, "hash": c.commit_hash[:10]} for c in commits]
+      "recent_commits": [{"branch": c.branch, "message": c.message, "hash": c.commit_hash[:10]} for c in commits],
+      "recent_reviews": [{"task_id": r.task_id, "decision": r.decision, "summary": r.summary, "findings": r.findings[:1200]} for r in reviews],
+      "recent_test_runs": [{"task_id": t.task_id, "result": t.result, "summary": t.summary[:1200], "passed": t.passed, "failed": t.failed, "total": t.total} for t in test_runs],
+      "open_bugs": [{"task_id": b.task_id, "title": b.title, "severity": b.severity, "description": b.description[:1200]} for b in bugs],
+      "developer_handovers": [{"summary": h.summary[:1600], "pending_items": json.loads(h.pending_items), "blockers": json.loads(h.blockers)} for h in handovers],
+      "recent_development_events": [{"type": e.event_type, "payload": json.loads(e.payload)} for e in development_events],
     }
-    prompt = f"{ROLE_GUIDANCE[data.role]}\nYou are DevSync AI, assisting project member role {data.role}. Use the project context only as evidence; do not invent repository details. If context is insufficient, say what is missing.\nPROJECT CONTEXT:\n{json.dumps(context, ensure_ascii=False)}\nUSER REQUEST:\n{data.prompt}"
+    prompt = f"{ROLE_GUIDANCE[data.role]}\nYou are DevSync AI, assisting project member role {data.role}. Use the project context only as evidence; do not invent repository details. Treat reviews, test results, bug reports and developer handovers as project memory, but distinguish recorded facts from inference. If context is insufficient, say what is missing.\nPROJECT CONTEXT:\n{json.dumps(context, ensure_ascii=False)}\nUSER REQUEST:\n{data.prompt}"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
     try:
         async with httpx.AsyncClient(timeout=45) as client:
