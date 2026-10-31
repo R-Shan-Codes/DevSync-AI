@@ -12,7 +12,7 @@
 9. Task parent-child hierarchy with project-scoped validation and cycle prevention.
 
 ## Current verification boundary
-Earlier CI baseline: backend 71 tests passed, frontend TypeScript check and production build passed, and VS Code extension TypeScript compilation passed. The current cycles/milestones/hierarchy milestone is awaiting its own CI results. External OAuth, inbound webhook delivery and live Gemini behavior remain deployment-dependent.
+Latest planning milestone CI: backend 75 tests passed, frontend TypeScript check and production build passed, and VS Code extension TypeScript compilation passed. External OAuth, inbound webhook delivery and live Gemini behavior remain deployment-dependent.
 
 ## P0 — Complete and stabilize planning milestone
 - Verify cycle/milestone CRUD, date validation, project isolation and hierarchy cycle prevention.
