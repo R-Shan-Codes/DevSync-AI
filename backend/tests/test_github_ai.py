@@ -2,7 +2,7 @@ import json
 
 from app.core.database import get_db
 from app.main import app
-from app.models import AIReviewArtifact
+from app.models import AIReviewArtifact, User
 from app.api.github_ai import normalize_findings, parse_ai_json, redact_secrets
 
 
@@ -70,7 +70,7 @@ def test_ai_github_analysis_history_is_project_scoped(client):
     try:
         db.add(AIReviewArtifact(
             project_id=first["id"],
-            requester_id=first["owner_id"],
+            requester_id=db.query(User).filter_by(email="github-ai-history@example.com").one().id,
             artifact_type="pull_request_review",
             source_key="pr:8",
             summary="One potential issue.",
