@@ -28,3 +28,6 @@ Set `GEMINI_API_KEY` in the backend environment to enable AI analysis. The selec
 
 
 AI analysis can be explicitly connected to a task from the analysis detail panel. This requires project edit permission. The Development Pipeline shows the latest linked AI analysis as advisory context; findings are not automatically converted into bugs or workflow blockers.
+
+
+For deployment configuration, webhook delivery verification, OAuth troubleshooting, data-handling limits and live Gemini checks, follow [the live GitHub and Gemini integration runbook](../docs/live-github-ai-integration.md).
