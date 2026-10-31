@@ -1,9 +1,11 @@
 import * as vscode from 'vscode'
-import { DevSyncApi, Task } from './service'
+import { DevEvent, DevSyncApi, Task } from './service'
 
 let api: DevSyncApi | undefined
 let tree: TaskProvider
 let poll: ReturnType<typeof setInterval> | undefined
+let eventTimer: ReturnType<typeof setTimeout> | undefined
+let pendingEvents: DevEvent[] = []
 
 export function activate(context: vscode.ExtensionContext) {
   api = new DevSyncApi(context)
@@ -57,8 +59,11 @@ export function activate(context: vscode.ExtensionContext) {
     try{await api!.reportBug(task.id,title.trim(),description.trim(),severity);vscode.window.showInformationMessage('Bug report submitted to DevSync');await refresh()}catch(e){vscode.window.showErrorMessage(message(e))}
   }))
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
-  watcher.onDidChange(() => refresh()); watcher.onDidCreate(() => refresh()); watcher.onDidDelete(() => refresh())
+  watcher.onDidChange(uri => queueFileEvent('file.changed', uri))
+  watcher.onDidCreate(uri => queueFileEvent('file.created', uri))
+  watcher.onDidDelete(uri => queueFileEvent('file.deleted', uri))
   context.subscriptions.push(watcher)
+  context.subscriptions.push({ dispose: () => { if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() } })
   poll = setInterval(() => refresh(), 60000)
   context.subscriptions.push({ dispose: () => { if (poll) clearInterval(poll) } })
   refresh()
@@ -67,6 +72,29 @@ async function refresh() { try { if (!api || !(await api.hasToken())) return; tr
 async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} local commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 async function githubStatus() { try { const account = await api!.githubAccount(); vscode.window.showInformationMessage(account.connected ? `GitHub connected as @${account.login}` : 'GitHub is not connected. Connect it from the DevSync dashboard.') } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 async function syncGitHub() { try { const result = await api!.syncGitHub(); vscode.window.showInformationMessage(`Synced ${result.new_commits} commits from ${result.repository}`); await refresh() } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+function queueFileEvent(event_type: string, uri: vscode.Uri) {
+  const path = vscode.workspace.asRelativePath(uri, false).split(String.fromCharCode(92)).join('/')
+  const ignored = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'build', 'coverage', '.next'])
+  if (!path || path.split('/').some(part => ignored.has(part)) || path.startsWith('../')) return
+  pendingEvents.push({ event_type, payload: { path }, source: 'vscode' })
+  if (pendingEvents.length >= 100) void flushDevEvents()
+  if (eventTimer) clearTimeout(eventTimer)
+  eventTimer = setTimeout(() => { void flushDevEvents() }, 1200)
+}
+
+async function flushDevEvents() {
+  if (eventTimer) clearTimeout(eventTimer)
+  eventTimer = undefined
+  if (!api || !pendingEvents.length) return
+  const batch = pendingEvents.splice(0, 100)
+  try {
+    if (await api.hasToken()) await api.ingestEvents(batch)
+  } catch {
+    vscode.window.setStatusBarMessage('DevSync: development activity could not be synchronized', 5000)
+  }
+  if (pendingEvents.length) void flushDevEvents()
+}
+
 function message(e: unknown) { return e instanceof Error ? e.message : String(e) }
 class TaskProvider implements vscode.TreeDataProvider<TaskItem> {
   private emitter = new vscode.EventEmitter<TaskItem | undefined>()
