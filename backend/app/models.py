@@ -1,5 +1,5 @@
 import enum,uuid
-from datetime import datetime,timezone
+from datetime import date,datetime,timezone
 from sqlalchemy import Boolean,Date,DateTime,Enum,ForeignKey,String,Text,Integer,UniqueConstraint
 from sqlalchemy.orm import Mapped,mapped_column,relationship
 from app.core.database import Base
@@ -45,7 +45,7 @@ class Task(TimestampMixin,Base):
  title:Mapped[str]=mapped_column(String(180),nullable=False)
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
  priority:Mapped[str]=mapped_column(String(10),default='medium',nullable=False)
- due_date:Mapped[datetime.date|None]=mapped_column(Date,nullable=True)
+ due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
  status:Mapped[TaskStatus]=mapped_column(Enum(TaskStatus),default=TaskStatus.backlog,nullable=False)
  assignee_id:Mapped[str|None]=mapped_column(ForeignKey('users.id',ondelete='SET NULL'))
  created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
