@@ -22,6 +22,8 @@ type Analysis = {
 }
 type ProjectTask = { id:string; title:string }
 type LinkedTask = { id:string; task_id:string; task_title:string; created_at:string }
+type IntegrationCheck = { key:string; label:string; status:'passed'|'warning'|'failed'; detail:string }
+type IntegrationReport = { overall_status:'passed'|'warning'|'failed'; checks:IntegrationCheck[]; live_delivery_note:string }
 type Props = { token: string; projectId: string; canReview: boolean; canEdit: boolean }
 
 const severityClass = (severity: string) => `ai-finding-severity ${severity}`
@@ -38,6 +40,8 @@ export default function GitHubReviewCenter({ token, projectId, canReview, canEdi
   const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>([])
   const [taskToLink, setTaskToLink] = useState('')
   const [linkBusy, setLinkBusy] = useState(false)
+  const [integrationBusy, setIntegrationBusy] = useState(false)
+  const [integrationReport, setIntegrationReport] = useState<IntegrationReport|null>(null)
 
   async function refresh() {
     if (!projectId) return
@@ -53,6 +57,7 @@ export default function GitHubReviewCenter({ token, projectId, canReview, canEdi
   useEffect(() => {
     setAnalyses([])
     setSelected(null)
+    setIntegrationReport(null)
     setError('')
     if (projectId) refresh()
   }, [token, projectId])
@@ -75,6 +80,21 @@ export default function GitHubReviewCenter({ token, projectId, canReview, canEdi
       .then(setLinkedTasks)
       .catch(e => setError(e instanceof Error ? e.message : 'Unable to load linked tasks'))
   }, [token, projectId, selected?.id])
+
+  async function runIntegrationCheck() {
+    if (!projectId) return
+    setIntegrationBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const report = await request<IntegrationReport>(`/github/projects/${projectId}/integration-check`, token, { method:'POST' })
+      setIntegrationReport(report)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to run integration diagnostics')
+    } finally {
+      setIntegrationBusy(false)
+    }
+  }
 
   async function linkAnalysisToTask() {
     if (!projectId || !selected || !taskToLink) return
@@ -126,6 +146,20 @@ export default function GitHubReviewCenter({ token, projectId, canReview, canEdi
   }
 
   return <div className="github-ai-center">
+    <section className="panel github-integration-panel">
+      <div className="panel-heading">
+        <div><h3>Live integration diagnostics</h3><p className="muted">Check this project's GitHub connection, repository access and Gemini API configuration.</p></div>
+        <button className="primary" disabled={integrationBusy||!projectId} onClick={()=>void runIntegrationCheck()}>{integrationBusy?'Checking…':'Run live checks'}</button>
+      </div>
+      {integrationReport&&<div className="github-integration-results">
+        <div className="github-integration-overall"><b>Overall status</b><span className={`github-integration-badge ${integrationReport.overall_status}`}>{integrationReport.overall_status}</span></div>
+        {integrationReport.checks.map(check=><div className="github-integration-check" key={check.key}>
+          <div><b>{check.label}</b><span className={`github-integration-badge ${check.status}`}>{check.status}</span></div>
+          <p>{check.detail}</p>
+        </div>)}
+        <p className="muted github-integration-note">{integrationReport.live_delivery_note}</p>
+      </div>}
+    </section>
     <section className="panel">
       <div className="panel-heading">
         <div><h3><Sparkles size={17}/> AI code review & debugging</h3><p className="muted">Review GitHub pull requests and diagnose failed Actions runs using project-linked repository evidence.</p></div>
