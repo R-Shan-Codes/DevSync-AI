@@ -145,3 +145,87 @@ def test_webhook_acknowledges_unlinked_repository_without_project_data(client, m
     assert response.status_code == 200
     assert response.json()["outcome"] == "ignored"
     assert response.json()["project_id"] is None
+
+
+def test_duplicate_commit_across_distinct_push_deliveries_is_idempotent(client, monkeypatch):
+    project_id = _project_with_repository(client, "duplicate-commit-webhook@example.com")
+    secret = "test-webhook-secret"
+    monkeypatch.setattr(config.settings, "github_webhook_secret", secret)
+    commit_hash = "c" * 40
+    payload = {
+        "ref": "refs/heads/main",
+        "repository": {"full_name": "acme/devsync"},
+        "commits": [{
+            "id": commit_hash,
+            "message": "A commit delivered in more than one push payload",
+            "timestamp": "2026-10-31T12:00:00Z",
+            "author": {"name": "Contributor", "email": "contributor@example.com"},
+        }],
+    }
+    first = _send_webhook(client, payload, "push", "commit-delivery-first", secret)
+    second = _send_webhook(client, payload, "push", "commit-delivery-second", secret)
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["duplicate"] is False
+
+    generator, db = _db_session()
+    try:
+        commits = db.query(GitEvent).filter_by(
+            project_id=project_id, commit_hash=commit_hash
+        ).all()
+        deliveries = db.query(GitHubWebhookDelivery).filter(
+            GitHubWebhookDelivery.delivery_id.in_([
+                "commit-delivery-first", "commit-delivery-second"
+            ])
+        ).all()
+        assert len(commits) == 1
+        assert len(deliveries) == 2
+    finally:
+        generator.close()
+
+
+def test_check_run_and_check_suite_webhooks_create_activity(client, monkeypatch):
+    project_id = _project_with_repository(client, "checks-webhook@example.com")
+    secret = "test-webhook-secret"
+    monkeypatch.setattr(config.settings, "github_webhook_secret", secret)
+    common = {"repository": {"full_name": "acme/devsync"}}
+
+    check_run = {
+        **common,
+        "action": "completed",
+        "check_run": {
+            "name": "Backend CI",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/acme/devsync/actions/runs/1",
+            "head_sha": "d" * 40,
+        },
+    }
+    check_suite = {
+        **common,
+        "action": "completed",
+        "check_suite": {
+            "status": "completed",
+            "conclusion": "success",
+            "head_sha": "e" * 40,
+        },
+    }
+    run_response = _send_webhook(client, check_run, "check_run", "check-run-delivery", secret)
+    suite_response = _send_webhook(client, check_suite, "check_suite", "check-suite-delivery", secret)
+    assert run_response.status_code == 200, run_response.text
+    assert suite_response.status_code == 200, suite_response.text
+    assert run_response.json()["events_emitted"] == 1
+    assert suite_response.json()["events_emitted"] == 1
+
+    generator, db = _db_session()
+    try:
+        run_event = db.query(ActivityEvent).filter_by(
+            project_id=project_id, event_type="github.check_run"
+        ).one()
+        suite_event = db.query(ActivityEvent).filter_by(
+            project_id=project_id, event_type="github.check_suite"
+        ).one()
+        assert json.loads(run_event.payload)["conclusion"] == "failure"
+        assert json.loads(suite_event.payload)["conclusion"] == "success"
+    finally:
+        generator.close()
