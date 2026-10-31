@@ -329,3 +329,75 @@ def _connect_github_for_test(client, email, project_id, monkeypatch):
     finally:
         generator.close()
     return httpx.AsyncClient
+
+
+def test_pull_request_review_route_uses_linked_repo_and_redacts_diff_before_gemini(
+    client, monkeypatch
+):
+    headers = register(client, "github-ai-mocked-review@example.com")
+    project = client.post(
+        "/api/v1/projects", headers=headers, json={"name": "Mocked GitHub review"}
+    ).json()
+    _connect_github_for_test(client, "github-ai-mocked-review@example.com", project["id"], monkeypatch)
+
+    captured = {}
+    diff = "diff --git a/auth.py b/auth.py\n+token=supersecretvalue123456\n"
+
+    def github_handler(request):
+        captured.setdefault("github_requests", []).append(request)
+        if request.url.path.endswith("/pulls/7") and "application/vnd.github.diff" in request.headers.get("accept", ""):
+            return httpx.Response(200, text=diff)
+        if request.url.path.endswith("/pulls/7"):
+            return httpx.Response(200, json={
+                "number": 7,
+                "title": "Improve token refresh",
+                "body": "Review token refresh behavior",
+                "base": {"repo": {"full_name": "acme/devsync"}},
+                "head": {"ref": "feature/token-refresh"},
+            })
+        return httpx.Response(404, json={"message": "unexpected request"})
+
+    real_client = httpx.AsyncClient(
+        transport=httpx.MockTransport(github_handler), follow_redirects=True
+    )
+    monkeypatch.setattr(github_ai.httpx, "AsyncClient", lambda **kwargs: real_client)
+
+    async def fake_gemini(instruction, evidence):
+        captured["evidence"] = evidence
+        return {
+            "summary": "Review completed from mocked GitHub evidence.",
+            "findings": [{
+                "severity": "medium",
+                "title": "Review token refresh edge case",
+                "file": "auth.py",
+                "line": 2,
+                "explanation": "The mocked diff includes a token assignment.",
+                "recommendation": "Verify the token handling path.",
+                "confidence": 0.8,
+            }],
+        }
+
+    monkeypatch.setattr(github_ai, "gemini_analysis", fake_gemini)
+    response = client.post(
+        f"/api/v1/github/projects/{project['id']}/pull-requests/7/review",
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["summary"] == "Review completed from mocked GitHub evidence."
+    assert "supersecretvalue123456" not in captured["evidence"]
+    assert "[REDACTED_SECRET]" in captured["evidence"]
+    assert any(
+        "application/vnd.github.diff" in request.headers.get("accept", "")
+        for request in captured["github_requests"]
+    )
+
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        artifact = db.query(AIReviewArtifact).filter_by(
+            project_id=project["id"], artifact_type="pull_request_review"
+        ).one()
+        assert artifact.source_key == "pr:7"
+    finally:
+        generator.close()
+    asyncio.run(real_client.aclose())
