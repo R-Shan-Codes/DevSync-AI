@@ -229,3 +229,35 @@ def test_check_run_and_check_suite_webhooks_create_activity(client, monkeypatch)
         assert json.loads(suite_event.payload)["conclusion"] == "success"
     finally:
         generator.close()
+
+
+def test_webhook_repository_lookup_does_not_treat_underscore_as_sql_wildcard(client, monkeypatch):
+    project_id = _project_with_repository(client, "exact-repository-webhook@example.com")
+    generator, db = _db_session()
+    try:
+        project = db.get(Project, project_id)
+        project.github_repo_full_name = "acme/dev_sync"
+        db.commit()
+    finally:
+        generator.close()
+
+    secret = "test-webhook-secret"
+    monkeypatch.setattr(config.settings, "github_webhook_secret", secret)
+    response = _send_webhook(
+        client,
+        {"repository": {"full_name": "acme/devXsync"}, "ref": "refs/heads/main", "commits": []},
+        "push",
+        "repository-wildcard-delivery",
+        secret,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["outcome"] == "ignored"
+    assert response.json()["project_id"] is None
+
+    generator, db = _db_session()
+    try:
+        assert db.query(ActivityEvent).filter_by(
+            project_id=project_id, event_type="github.push"
+        ).count() == 0
+    finally:
+        generator.close()
