@@ -36,3 +36,11 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 - POST /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — explicitly links an analysis to a task; requires project edit permission.
 - GET /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — lists task links for an analysis.
 - GET /projects/{project_id}/pipeline — includes the latest task-linked AI analysis as advisory evidence. AI findings do not automatically create bugs, block tasks, change statuses, approve or merge.
+
+
+## VS Code development-event synchronization
+- POST /projects/{project_id}/intelligence/events — authenticated, edit-permission event ingestion (1–100 events per batch). Supported event types include file.created/changed/deleted, workspace.opened, branch.changed and commit.created.
+- GET /projects/{project_id}/intelligence/events — recent project development events.
+- GET /projects/{project_id}/intelligence/files — recent file-change metadata.
+- A valid 40-character Git commit hash in a commit.created event is also persisted as a project Git event (idempotent per project/commit), making it available to the existing commit-task suggestion and explicit commit-link endpoints.
+- The dashboard WebSocket at /ws/projects/{project_id} broadcasts event notifications; connected dashboard views refresh activity, development intelligence and pipeline data.
