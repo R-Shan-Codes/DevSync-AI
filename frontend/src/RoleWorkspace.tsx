@@ -3,6 +3,7 @@ import { Activity, ClipboardCheck, Code2, ShieldCheck, Users } from 'lucide-reac
 import { Member, Task, request } from './api'
 import BugReports from './BugReports'
 import TaskWorkflow from './TaskWorkflow'
+import TeamInsights from './TeamInsights'
 
 type TestRun = { id:string; task_id:string; tester_id:string; result:string; summary:string; total:number; passed:number; failed:number; created_at:string }
 type Props = { token:string; projectId:string; member:Member|null; tasks:Task[]; members:Member[]; onRefresh:()=>void }
@@ -67,6 +68,7 @@ export default function RoleWorkspace({token,projectId,member,tasks,members,onRe
     <label className="test-summary">Summary<textarea value={summary} onChange={e=>setSummary(e.target.value)} placeholder="What was tested? Include observed behavior or bug details."/></label>
    </div><button className="primary" disabled={busy||!taskId||passed+failed>total||(result==='failed'&&failed===0)||(result==='passed'&&failed>0)} onClick={submitRun}>{busy?'Saving…':'Save test result'}</button>
   </section>}
+  {admin&&<TeamInsights members={members} tasks={tasks}/>}
   <TaskWorkflow token={token} projectId={projectId} member={member} tasks={admin?tasks:tester?tasks.filter(t=>['ready_for_testing','testing','failed','passed'].includes(t.status)||t.assignee_id===member?.user_id):mine} onRefresh={onRefresh}/>
   <BugReports token={token} projectId={projectId} member={member} tasks={tasks}/>
   <section className="panel"><div className="panel-heading"><div><h3>Recent QA results</h3><p className="muted">Persisted test execution history for this project.</p></div><ClipboardCheck size={18}/></div>
