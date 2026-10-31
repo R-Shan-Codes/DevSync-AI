@@ -1,7 +1,7 @@
 name: VS Code Extension CI
 on:
   pull_request:
-    branches: [main, feat/development-intelligence-foundation]
+    branches: [main, feat/development-intelligence-foundation, feat/conflict-pipeline-contribution-memory]
   push:
     branches: [main]
 jobs:
