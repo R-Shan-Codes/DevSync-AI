@@ -312,3 +312,21 @@ def test_webhook_rejects_oversized_payload_before_signature_processing(client, m
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 413
+
+
+def test_webhook_ignores_malformed_signed_commit_entries_without_crashing(client, monkeypatch):
+    _project_with_repository(client, "malformed-webhook@example.com")
+    secret = "test-webhook-secret"
+    monkeypatch.setattr(config.settings, "github_webhook_secret", secret)
+    payload = {
+        "repository": {"full_name": "acme/devsync"},
+        "sender": "unexpected-string-shape",
+        "ref": "refs/heads/main",
+        "commits": [
+            "unexpected-string-entry",
+            {"id": "g" * 40, "author": "unexpected-string-shape"},
+        ],
+    }
+    response = _send_webhook(client, payload, "push", "malformed-push-delivery", secret)
+    assert response.status_code == 200, response.text
+    assert response.json()["outcome"] == "processed"
