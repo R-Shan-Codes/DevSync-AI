@@ -23,6 +23,7 @@ async def update_task(project_id:str,task_id:str,data:TaskUpdate,db:Session=Depe
  _,m=get_project_member(project_id,db,user);t=db.scalar(select(Task).where(Task.id==task_id,Task.project_id==project_id))
  if not t: raise HTTPException(status_code=404,detail='Task not found')
  changes=data.model_dump(exclude_unset=True)
+ if any(key in changes for key in ('title','description','priority','due_date')): require_permission(m,'edit')
  if 'assignee_id' in changes:
   require_permission(m,'manage_team')
   if changes['assignee_id'] and not db.scalar(select(ProjectMember).where(ProjectMember.project_id==project_id,ProjectMember.user_id==changes['assignee_id'])):
@@ -53,8 +54,10 @@ async def create_task_comment(project_id:str,task_id:str,data:TaskCommentCreate,
  require_permission(member,'edit')
  task=db.scalar(select(Task).where(Task.id==task_id,Task.project_id==project_id))
  if not task: raise HTTPException(status_code=404,detail='Task not found')
- comment=TaskComment(project_id=project_id,task_id=task_id,author_id=user.id,body=data.body.strip())
- db.add(comment)
+ body=data.body.strip()
+ if not body: raise HTTPException(status_code=422,detail='Comment cannot be empty')
+ comment=TaskComment(project_id=project_id,task_id=task_id,author_id=user.id,body=body)
+ db.add(comment);db.flush()
  record_activity(db,project_id,user.id,'task.comment_created',{'task_id':task_id,'comment_id':comment.id})
  db.commit();db.refresh(comment)
  await manager.broadcast(project_id,{'type':'task.comment_created','data':{'task_id':task_id,'comment_id':comment.id}})
