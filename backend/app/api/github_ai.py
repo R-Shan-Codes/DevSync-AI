@@ -24,6 +24,7 @@ GITHUB_HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
 }
 MAX_DIFF_CHARS = 60_000
+MAX_DIFF_DOWNLOAD_BYTES = 2_000_000
 MAX_LOG_CHARS = 45_000
 MAX_LOG_ARCHIVE_BYTES = 10_000_000
 MAX_LOG_ARCHIVE_FILES = 20
@@ -132,7 +133,7 @@ async def gemini_analysis(instruction: str, evidence: str) -> dict:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 url,
-                params={"key": settings.gemini_api_key},
+                headers={"x-goog-api-key": settings.gemini_api_key},
                 json={
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {
@@ -157,10 +158,11 @@ async def gemini_analysis(instruction: str, evidence: str) -> dict:
 
 
 async def github_download_bounded(
-    client: httpx.AsyncClient, url: str, token: str, max_bytes: int
+    client: httpx.AsyncClient, url: str, token: str, max_bytes: int,
+    request_headers: dict | None = None,
 ) -> bytes:
     """Download a GitHub log archive with a hard response-body limit."""
-    headers = {**GITHUB_HEADERS, "Authorization": f"Bearer {token}"}
+    headers = {**GITHUB_HEADERS, "Authorization": f"Bearer {token}", **(request_headers or {})}
     try:
         async with client.stream("GET", url, headers=headers) as response:
             if response.status_code == 401:
@@ -252,11 +254,14 @@ async def review_pull_request(
         base_repo = ((pr.get("base") or {}).get("repo") or {}).get("full_name", "")
         if base_repo.lower() != project.github_repo_full_name.lower():
             raise HTTPException(status_code=404, detail="Pull request does not belong to this project's linked repository.")
-        diff_response = await github_request(
-            client, "GET", f"{GITHUB_API}/repos/{owner}/{repo}/pulls/{pull_number}", token,
-            headers={"Accept": "application/vnd.github.diff"},
+        diff_bytes = await github_download_bounded(
+            client,
+            f"{GITHUB_API}/repos/{owner}/{repo}/pulls/{pull_number}",
+            token,
+            MAX_DIFF_DOWNLOAD_BYTES,
+            request_headers={"Accept": "application/vnd.github.diff"},
         )
-        diff = redact_secrets(diff_response.text[:MAX_DIFF_CHARS])
+        diff = redact_secrets(diff_bytes.decode("utf-8", errors="replace")[:MAX_DIFF_CHARS])
     if not diff.strip():
         raise HTTPException(status_code=422, detail="GitHub returned an empty pull-request diff.")
     analysis = await gemini_analysis(
