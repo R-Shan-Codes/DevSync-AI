@@ -349,7 +349,7 @@ class AIReviewTaskLinkCreate(BaseModel):
 
 
 @router.post("/ai-analyses/{artifact_id}/tasks", status_code=201)
-def link_ai_analysis_to_task(
+async def link_ai_analysis_to_task(
     project_id: str,
     artifact_id: str,
     data: AIReviewTaskLinkCreate,
@@ -389,13 +389,10 @@ def link_ai_analysis_to_task(
     })
     db.commit()
     db.refresh(row)
-    awaitable = manager.broadcast(project_id, {
+    await manager.broadcast(project_id, {
         "type": "ai.github_analysis.linked_to_task",
         "data": {"artifact_id": artifact_id, "task_id": task.id},
     })
-    # Broadcast is intentionally best-effort after the durable link is committed.
-    import asyncio
-    asyncio.create_task(awaitable)
     return {"id": row.id, "artifact_id": artifact_id, "task_id": task.id, "created": True}
 
 
