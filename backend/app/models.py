@@ -102,3 +102,14 @@ class GitHubAccount(TimestampMixin,Base):
  avatar_url:Mapped[str]=mapped_column(String(500),default='',nullable=False)
  access_token_encrypted:Mapped[str]=mapped_column(Text,nullable=False)
  scopes:Mapped[str]=mapped_column(Text,default='',nullable=False)
+
+class BugReport(Base):
+ __tablename__='bug_reports'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ reporter_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ title:Mapped[str]=mapped_column(String(180),nullable=False)
+ description:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ severity:Mapped[str]=mapped_column(String(20),default='medium',nullable=False)
+ status:Mapped[str]=mapped_column(String(20),default='open',nullable=False)
