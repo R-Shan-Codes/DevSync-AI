@@ -126,3 +126,25 @@ def test_task_parent_cycle_is_rejected(client):
         json={'parent_task_id':second['id']},
     )
     assert response.status_code==409
+
+
+def test_cycle_update_rejects_null_or_reversed_dates(client):
+    headers=auth(client)
+    project=create_project(client,headers,'Cycle date validation')
+    cycle=client.post(
+        f"/api/v1/projects/{project['id']}/cycles",
+        headers=headers,
+        json={'name':'Valid cycle','start_date':'2026-11-01','end_date':'2026-11-14'},
+    ).json()
+    null_date=client.patch(
+        f"/api/v1/projects/{project['id']}/cycles/{cycle['id']}",
+        headers=headers,
+        json={'end_date':None},
+    )
+    assert null_date.status_code==422
+    reversed_date=client.patch(
+        f"/api/v1/projects/{project['id']}/cycles/{cycle['id']}",
+        headers=headers,
+        json={'end_date':'2026-10-31'},
+    )
+    assert reversed_date.status_code==422
