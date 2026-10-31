@@ -18,5 +18,6 @@ def test_insights_and_project_memory(client):
 def test_ai_assistant_requires_configuration(client):
     headers = register(client, "assistant@example.com")
     project = client.post("/api/v1/projects", headers=headers, json={"name": "AI project"}).json()
-    response = client.post("/api/v1/ai/assist", headers=headers, json={"project_id": project["id"], "role": "coder", "prompt": "Help implement a feature"})
+    member = client.get(f"/api/v1/projects/{project['id']}/members/me", headers=headers).json()
+    response = client.post("/api/v1/ai/assist", headers=headers, json={"project_id": project["id"], "role": member["role"], "prompt": "Help implement a feature"})
     assert response.status_code in (200, 503)
