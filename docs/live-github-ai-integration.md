@@ -71,7 +71,7 @@ CI does not exercise a real GitHub OAuth exchange, public webhook delivery, a li
 
 ## Dashboard integration diagnostics
 
-The GitHub tab includes **Run live checks**. It calls `POST /api/v1/github/projects/{project_id}/integration-check` and reports:
+The GitHub tab includes **Run live checks** (requires project review permission because it makes a Gemini connectivity request). It calls `POST /api/v1/github/projects/{project_id}/integration-check` and reports:
 - Whether GitHub OAuth client credentials and the token encryption key are configured.
 - Whether the signed-in user's stored GitHub token can authenticate to GitHub.
 - Whether that account can access the project's exact linked repository.
