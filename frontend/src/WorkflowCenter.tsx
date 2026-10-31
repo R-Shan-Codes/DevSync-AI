@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, Bug, CheckCircle2, ClipboardCheck, MessageSquareText, RefreshCw, ShieldCheck, Users } from 'lucide-react'
+import { Bug, CheckCircle2, ClipboardCheck, MessageSquareText, RefreshCw, ShieldCheck, Users } from 'lucide-react'
 import { Member, Task, request } from './api'
 
 type Review = { id: string; task_id: string; reviewer_id: string; decision: string; summary: string; findings: string; created_at: string }
