@@ -3,7 +3,7 @@ import hmac
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -46,7 +46,15 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
             committed_at=str((commit.get("timestamp") or ""))[:40],
             message=(str(commit.get("message") or "").splitlines() or [""])[0][:1000],
         )
-        db.add(event)
+        try:
+            # A different delivery can contain a commit already persisted by a
+            # concurrent push. Isolate the unique-commit race so the delivery
+            # itself can still be recorded and acknowledged.
+            with db.begin_nested():
+                db.add(event)
+                db.flush()
+        except IntegrityError:
+            continue
         created_events.append({
             "type": "git.commit",
             "data": {
@@ -141,7 +149,7 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
     repository = payload.get("repository") or {}
     repository_full_name = str(repository.get("full_name") or "")[:255]
     project = db.scalar(select(Project).where(
-        Project.github_repo_full_name.ilike(repository_full_name)
+        func.lower(Project.github_repo_full_name) == repository_full_name.lower()
     )) if repository_full_name else None
     action = str(payload.get("action") or "")[:80]
     delivery = GitHubWebhookDelivery(
