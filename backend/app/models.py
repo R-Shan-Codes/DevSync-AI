@@ -1,6 +1,6 @@
 import enum,uuid
 from datetime import datetime,timezone
-from sqlalchemy import Boolean,DateTime,Enum,ForeignKey,String,Text,Integer,UniqueConstraint
+from sqlalchemy import Boolean,Date,DateTime,Enum,ForeignKey,String,Text,Integer,UniqueConstraint
 from sqlalchemy.orm import Mapped,mapped_column,relationship
 from app.core.database import Base
 def new_id(): return str(uuid.uuid4())
@@ -44,6 +44,8 @@ class Task(TimestampMixin,Base):
  project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
  title:Mapped[str]=mapped_column(String(180),nullable=False)
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ priority:Mapped[str]=mapped_column(String(10),default='medium',nullable=False)
+ due_date:Mapped[datetime.date|None]=mapped_column(Date,nullable=True)
  status:Mapped[TaskStatus]=mapped_column(Enum(TaskStatus),default=TaskStatus.backlog,nullable=False)
  assignee_id:Mapped[str|None]=mapped_column(ForeignKey('users.id',ondelete='SET NULL'))
  created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
@@ -255,3 +257,13 @@ class AIReviewTaskLink(Base):
  task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
  linked_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+
+class TaskComment(Base):
+ __tablename__='task_comments'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ author_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ body:Mapped[str]=mapped_column(Text,nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
