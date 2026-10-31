@@ -15,7 +15,7 @@ It is not yet a complete general-purpose project-management suite. The task obje
 | Accounts and authentication | Implemented foundation | Registration, login, bearer authentication and current-user endpoint | Password reset, MFA, session/device management and mature account lifecycle |
 | Projects and teams | Implemented foundation | Project creation, membership, project roles and permission controls | Team-level workspaces, groups, invitations and richer admin controls |
 | Role-based permissions | Implemented | Project membership permissions are enforced by backend routes | Permission audit history and easier policy administration |
-| Task board and lifecycle | Implemented foundation | Task creation/list/update and validated delivery states from backlog through merge | Board drag/drop polish, priority, due dates, estimates, labels and configurable states |
+| Task board and lifecycle | Implemented foundation | Task creation/list/update, priority, due dates and validated delivery states from backlog through merge | Board drag/drop polish, estimates, labels and configurable states |
 | Assignment | Implemented | Assign to project members; pipeline suggests owners using role fit/workload | Capacity planning, multiple assignees and assignment automation |
 | Dependencies | Implemented | Persistent task dependencies with cycle prevention; pipeline reports blockers | Dependency visualization and cross-project dependencies |
 | Reviews and QA | Implemented | Review decisions, test-run evidence, test counts and task-scoped history | Rich test integrations, artifacts, coverage trends and review templates |
@@ -28,7 +28,7 @@ It is not yet a complete general-purpose project-management suite. The task obje
 | AI project memory | Partial | Recent project events, bugs, handovers and bounded delivery context | Durable semantic repository/task knowledge, indexing, citations and retention controls |
 | AI conflict detector | Partial | Read-only Git merge conflict analysis for refs available locally | Remote branch synchronization and earlier predictive conflict warnings |
 | Smart development pipeline | Implemented foundation | Read-only stages, blockers, next action, review/test evidence and linked AI analysis | Configurable gates and automated integrations; retain human approval for consequential actions |
-| Task comments and mentions | Missing | No task-comment/thread model or mention workflow found | Add comments, threads, @mentions and notifications |
+| Task comments and mentions | Partial | Task-scoped comments are persisted, permission-checked and shown in a discussion panel | Threaded replies, @mentions, edit/delete history and notifications |
 | Subtasks / issue hierarchy | Missing | No parent-child task model found | Add hierarchy and roll-up progress |
 | Sprints / cycles | Missing | No sprint/cycle entity or planning UI found | Add backlog planning, cycle dates, goals and velocity |
 | Milestones / roadmaps | Missing | No milestone/roadmap model or UI found | Add milestones, roadmap views and progress rollups |
