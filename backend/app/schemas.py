@@ -42,7 +42,5 @@ class TestRunRead(BaseModel):
 
 class AIAssistRequest(BaseModel):
  project_id:str
- role:str=Field(pattern='^(team_leader_project_manager|ui_ux_designer|frontend_developer|backend_developer|tester_qa_engineer|devops_engineer|security_engineer|documentation_specialist|coder|debugger|tester)
- prompt:str=Field(min_length=2,max_length=12000)
-)
+ role:str=Field(pattern='^(team_leader_project_manager|ui_ux_designer|frontend_developer|backend_developer|tester_qa_engineer|devops_engineer|security_engineer|documentation_specialist|coder|debugger|tester))
  prompt:str=Field(min_length=2,max_length=12000)
