@@ -39,4 +39,18 @@ export class DevSyncApi {
     const relative=root.replace(/\\/g,'/').split('/').pop() || root
     return this.request(`/projects/${project}/git/sync`,{method:'POST',body:JSON.stringify({repository_path:workspaceRoot ? relative : root,commit_limit:30})})
   }
+  async updateTaskStatus(taskId:string,status:string):Promise<Task> {
+    const project=this.projectId()
+    if(!project) throw new Error('Set devsync.projectId in workspace settings first')
+    const member=await this.membership()
+    if(!member.permissions.edit) throw new Error('Your DevSync role does not have Edit permission')
+    return this.request(`/projects/${project}/tasks/${taskId}`,{method:'PATCH',body:JSON.stringify({status})})
+  }
+  async reportBug(taskId:string,title:string,description:string,severity:string):Promise<{id:string}> {
+    const project=this.projectId()
+    if(!project) throw new Error('Set devsync.projectId in workspace settings first')
+    const member=await this.membership()
+    if(!member.permissions.edit) throw new Error('Your DevSync role does not have Edit permission')
+    return this.request(`/projects/${project}/bugs`,{method:'POST',body:JSON.stringify({task_id:taskId,title,description,severity})})
+  }
 }
