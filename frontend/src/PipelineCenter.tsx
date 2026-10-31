@@ -20,6 +20,7 @@ type PipelineTask = {
   open_bug_count: number
   latest_review: { decision: string; summary: string } | null
   latest_test_run: { result: string; passed: number; failed: number; total: number } | null
+  latest_ai_review: { artifact_id:string; artifact_type:string; source_key:string; summary:string; finding_count:number; created_at:string } | null
   gates: string[]
   ready_for_next_step: boolean
   next_action: string
