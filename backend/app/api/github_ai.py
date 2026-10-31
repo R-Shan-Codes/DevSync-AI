@@ -2,7 +2,6 @@ import io
 import json
 import re
 import zipfile
-from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,8 +43,11 @@ def redact_secrets(value: str) -> str:
 def parse_ai_json(text: str) -> dict:
     cleaned = text.strip()
     if cleaned.startswith("```"):
-        cleaned = re.sub(r"^\`\`\`(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*\`\`\`$", "", cleaned)
+        cleaned = cleaned[3:].lstrip()
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:].lstrip()
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].rstrip()
     start, end = cleaned.find("{"), cleaned.rfind("}")
     if start < 0 or end <= start:
         raise ValueError("Gemini did not return a JSON object")
