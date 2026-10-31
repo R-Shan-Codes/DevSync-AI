@@ -34,7 +34,7 @@ The application records review and test evidence and surfaces pipeline readiness
 
 ## Product scope and next work
 
-DevSync already has a functioning engineering workflow foundation, but it is **not yet a complete Jira/Linear/Asana replacement**. Advanced planning and work-management capabilities—such as cycles/sprints, milestones/roadmaps, task comments and mentions, attachments, labels/custom fields, saved views, rich search, configurable automation and notification preferences—remain product gaps.
+DevSync already has a functioning engineering workflow foundation, but it is **not yet a complete Jira/Linear/Asana replacement**. Advanced planning and work-management capabilities—such as cycles/sprints, milestones/roadmaps, threaded comments and mentions, attachments, labels/custom fields, saved views, rich search, configurable automation and notification preferences—remain product gaps. Task priority, due dates and basic task discussion are now included in the active implementation branch.
 
 See [the implementation-backed capability audit](docs/product-capability-audit.md) for what exists, what is partial and what should be built next. The [development roadmap](docs/development-roadmap.md) is ordered by product impact and delivery dependency.
 
