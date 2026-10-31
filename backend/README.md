@@ -25,3 +25,6 @@ Set `GITHUB_WEBHOOK_SECRET` in the backend environment to a long random secret. 
 After connecting GitHub and linking a repository to a project, open the **GitHub** tab in the dashboard. Members with the project `review` permission can enter a pull-request number and request an AI code review. Project members can enter a full commit SHA to analyze failed GitHub Actions runs. Results are saved in project analysis history.
 
 Set `GEMINI_API_KEY` in the backend environment to enable AI analysis. The selected PR diff or failed workflow logs are sent to the configured Gemini model after size limits and common-secret redaction. Review findings are advisory only; developers must verify them. DevSync does not post review comments to GitHub, approve PRs, change code, or merge automatically.
+
+
+AI analysis can be explicitly connected to a task from the analysis detail panel. This requires project edit permission. The Development Pipeline shows the latest linked AI analysis as advisory context; findings are not automatically converted into bugs or workflow blockers.
