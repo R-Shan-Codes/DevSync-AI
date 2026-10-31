@@ -2,6 +2,9 @@ import * as vscode from 'vscode'
 export type Task = {id:string;title:string;description:string;status:string;assignee_id:string|null}
 export type Membership = {role:string;permissions:Record<string,boolean>}
 export type DevEvent = {event_type:string;payload:Record<string,unknown>;source:'vscode'}
+export type AIResponse = {response:string;role:string;model:string}
+export type NotificationItem = {id:string;project_id:string;project_name:string;type:string;title:string;message:string;resource_path:string;read_at:string|null;created_at:string}
+export type NotificationInbox = {items:NotificationItem[];unread_count:number}
 export class DevSyncApi {
   constructor(private context:vscode.ExtensionContext) {}
   async hasToken(): Promise<boolean> { return Boolean(await this.context.secrets.get('devsync.token')) }
@@ -25,6 +28,18 @@ export class DevSyncApi {
   }
   private projectId() { return vscode.workspace.getConfiguration('devsync').get<string>('projectId','').trim() }
   async membership():Promise<Membership> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');return this.request(`/projects/${project}/members/me`) }
+  async aiAssist(prompt:string):Promise<AIResponse> {
+    const project=this.projectId()
+    if(!project) throw new Error('Set devsync.projectId in workspace settings first')
+    const member=await this.membership()
+    return this.request('/ai/assist',{method:'POST',body:JSON.stringify({project_id:project,role:member.role,prompt})})
+  }
+  async notifications(unreadOnly=true):Promise<NotificationInbox> {
+    return this.request(`/notifications?unread_only=${unreadOnly}&limit=100`)
+  }
+  async markNotificationRead(id:string):Promise<{id:string;read_at:string}> {
+    return this.request(`/notifications/${id}/read`,{method:'PATCH'})
+  }
   async githubAccount():Promise<{connected:boolean;login?:string}> { return this.request('/github/account') }
   async syncGitHub():Promise<{repository:string;new_commits:number}> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission');return this.request(`/github/projects/${project}/sync`,{method:'POST'}) }
   async ingestEvents(events:DevEvent[]):Promise<{accepted:number}> {
@@ -51,7 +66,8 @@ export class DevSyncApi {
     const project=this.projectId()
     if(!project) throw new Error('Set devsync.projectId in workspace settings first')
     const member=await this.membership()
-    if(!member.permissions.edit) throw new Error('Your DevSync role does not have Edit permission')
+    const required = status === 'in_review' ? 'review' : status === 'approved' ? 'approve' : status === 'merged' ? 'merge' : 'edit'
+    if(!member.permissions[required]) throw new Error(`Your DevSync role does not have ${required.replaceAll('_',' ')} permission`)
     return this.request(`/projects/${project}/tasks/${taskId}`,{method:'PATCH',body:JSON.stringify({status})})
   }
   async reportBug(taskId:string,title:string,description:string,severity:string):Promise<{id:string}> {
