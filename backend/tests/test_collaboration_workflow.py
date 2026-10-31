@@ -70,3 +70,8 @@ def test_collaboration_workflow_rejects_foreign_task_and_invalid_test_counts(cli
         "task_id": foreign_task["id"], "result": "passed", "total": 2, "passed": 1, "failed": 1
     })
     assert test_run.status_code == 422  # Passed results cannot contain failed tests.
+
+    foreign_task_run = client.post(f"/api/v1/projects/{project_id}/test-runs", headers=owner, json={
+        "task_id": foreign_task["id"], "result": "passed", "total": 1, "passed": 1, "failed": 0
+    })
+    assert foreign_task_run.status_code == 404
