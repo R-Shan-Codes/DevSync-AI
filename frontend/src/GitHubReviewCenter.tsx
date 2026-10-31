@@ -20,11 +20,13 @@ type Analysis = {
   created_at: string
   disclaimer: string
 }
-type Props = { token: string; projectId: string; canReview: boolean }
+type ProjectTask = { id:string; title:string }
+type LinkedTask = { id:string; task_id:string; task_title:string; created_at:string }
+type Props = { token: string; projectId: string; canReview: boolean; canEdit: boolean }
 
 const severityClass = (severity: string) => `ai-finding-severity ${severity}`
 
-export default function GitHubReviewCenter({ token, projectId, canReview }: Props) {
+export default function GitHubReviewCenter({ token, projectId, canReview, canEdit }: Props) {
   const [pullNumber, setPullNumber] = useState('')
   const [commitSha, setCommitSha] = useState('')
   const [busy, setBusy] = useState<'review'|'checks'|''>('')
@@ -32,6 +34,10 @@ export default function GitHubReviewCenter({ token, projectId, canReview }: Prop
   const [message, setMessage] = useState('')
   const [analyses, setAnalyses] = useState<Analysis[]>([])
   const [selected, setSelected] = useState<Analysis|null>(null)
+  const [tasks, setTasks] = useState<ProjectTask[]>([])
+  const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>([])
+  const [taskToLink, setTaskToLink] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
 
   async function refresh() {
     if (!projectId) return
@@ -50,6 +56,46 @@ export default function GitHubReviewCenter({ token, projectId, canReview }: Prop
     setError('')
     if (projectId) refresh()
   }, [token, projectId])
+
+  useEffect(() => {
+    setTasks([])
+    setLinkedTasks([])
+    setTaskToLink('')
+    if (!projectId) return
+    request<ProjectTask[]>(`/projects/${projectId}/tasks`, token)
+      .then(setTasks)
+      .catch(e => setError(e instanceof Error ? e.message : 'Unable to load project tasks'))
+  }, [token, projectId])
+
+  useEffect(() => {
+    setLinkedTasks([])
+    setTaskToLink('')
+    if (!projectId || !selected) return
+    request<LinkedTask[]>(`/github/projects/${projectId}/ai-analyses/${selected.id}/tasks`, token)
+      .then(setLinkedTasks)
+      .catch(e => setError(e instanceof Error ? e.message : 'Unable to load linked tasks'))
+  }, [token, projectId, selected?.id])
+
+  async function linkAnalysisToTask() {
+    if (!projectId || !selected || !taskToLink) return
+    setLinkBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      await request(`/github/projects/${projectId}/ai-analyses/${selected.id}/tasks`, token, {
+        method: 'POST',
+        body: JSON.stringify({ task_id: taskToLink }),
+      })
+      const rows = await request<LinkedTask[]>(`/github/projects/${projectId}/ai-analyses/${selected.id}/tasks`, token)
+      setLinkedTasks(rows)
+      setTaskToLink('')
+      setMessage('AI analysis linked to the selected task. The pipeline now displays it as advisory evidence.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not link AI analysis to task')
+    } finally {
+      setLinkBusy(false)
+    }
+  }
 
   async function analyze(kind: 'review'|'checks') {
     if (!projectId) return
@@ -114,6 +160,18 @@ export default function GitHubReviewCenter({ token, projectId, canReview }: Prop
         <p>{finding.explanation}</p>
         {finding.recommendation&&<div className="ai-recommendation"><b>Suggested next step</b><p>{finding.recommendation}</p></div>}
       </article>)}
+      <div className="ai-task-link">
+        <div><b>Connect this analysis to a task</b><small className="muted">This adds advisory evidence to the task's Development Pipeline card. It does not change task status or treat AI findings as confirmed bugs.</small></div>
+        <div className="create-row">
+          <select aria-label="Task to link AI analysis" value={taskToLink} onChange={e=>setTaskToLink(e.target.value)}>
+            <option value="">Select a project task</option>
+            {tasks.filter(task=>!linkedTasks.some(link=>link.task_id===task.id)).map(task=><option key={task.id} value={task.id}>{task.title}</option>)}
+          </select>
+          <button className="primary" disabled={!canEdit||!taskToLink||linkBusy} onClick={()=>void linkAnalysisToTask()}>{linkBusy?'Linking…':'Link to task'}</button>
+        </div>
+        {!canEdit&&<small className="muted">Edit permission is required to link analysis to a task.</small>}
+        {linkedTasks.length>0&&<div className="ai-linked-tasks"><b>Linked tasks</b>{linkedTasks.map(link=><span className="role" key={link.id}>{link.task_title}</span>)}</div>}
+      </div>
       <p className="muted ai-privacy-note">{selected.disclaimer}</p>
     </section>}
   </div>
