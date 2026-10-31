@@ -302,3 +302,13 @@ def test_webhook_push_commit_is_available_to_commit_task_matching(client, monkey
         if item["commit_hash"] == commit_hash
     )
     assert candidate["candidates"][0]["task_id"] == task["id"]
+
+
+def test_webhook_rejects_oversized_payload_before_signature_processing(client, monkeypatch):
+    monkeypatch.setattr(config.settings, "github_webhook_secret", "test-webhook-secret")
+    response = client.post(
+        "/api/v1/github/webhooks",
+        content=b"x" * 2_000_001,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 413
