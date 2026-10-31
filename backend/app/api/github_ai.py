@@ -161,8 +161,8 @@ async def github_download_bounded(
     client: httpx.AsyncClient, url: str, token: str, max_bytes: int,
     request_headers: dict | None = None,
 ) -> bytes:
-    """Download a GitHub log archive with a hard response-body limit."""
-    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]{20,}"),
+    """Download GitHub evidence with a hard response-body limit."""
+    headers = {**GITHUB_HEADERS, "Authorization": f"Bearer {token}", **(request_headers or {})}
     try:
         async with client.stream("GET", url, headers=headers) as response:
             if response.status_code == 401:
