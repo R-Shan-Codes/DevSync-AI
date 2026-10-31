@@ -102,3 +102,96 @@ class GitHubAccount(TimestampMixin,Base):
  avatar_url:Mapped[str]=mapped_column(String(500),default='',nullable=False)
  access_token_encrypted:Mapped[str]=mapped_column(Text,nullable=False)
  scopes:Mapped[str]=mapped_column(Text,default='',nullable=False)
+
+
+# Additive intelligence tables. Existing tables and data are unchanged.
+class DevelopmentEvent(Base):
+ __tablename__='development_events'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ actor_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ event_type:Mapped[str]=mapped_column(String(80),index=True,nullable=False)
+ payload:Mapped[str]=mapped_column(Text,default='{}',nullable=False)
+ source:Mapped[str]=mapped_column(String(40),default='vscode',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+class FileChange(Base):
+ __tablename__='file_changes'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ actor_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ path:Mapped[str]=mapped_column(String(1000),index=True,nullable=False)
+ change_type:Mapped[str]=mapped_column(String(20),default='modified',nullable=False)
+ branch:Mapped[str]=mapped_column(String(255),default='',nullable=False)
+ commit_hash:Mapped[str|None]=mapped_column(String(40),nullable=True,index=True)
+ task_id:Mapped[str|None]=mapped_column(ForeignKey('tasks.id',ondelete='SET NULL'),nullable=True,index=True)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+class TaskDependency(Base):
+ __tablename__='task_dependencies'
+ __table_args__=(UniqueConstraint('project_id','task_id','depends_on_task_id',name='uq_task_dependency'),)
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ depends_on_task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+class CommitTaskLink(Base):
+ __tablename__='commit_task_links'
+ __table_args__=(UniqueConstraint('project_id','commit_hash','task_id',name='uq_commit_task_link'),)
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ commit_hash:Mapped[str]=mapped_column(String(40),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ linked_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ confidence:Mapped[float]=mapped_column(default=1.0,nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+class AIConversation(TimestampMixin,Base):
+ __tablename__='ai_conversations'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ user_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ role:Mapped[str]=mapped_column(String(80),nullable=False)
+ title:Mapped[str]=mapped_column(String(180),default='New conversation',nullable=False)
+
+class AIMessage(Base):
+ __tablename__='ai_messages'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ conversation_id:Mapped[str]=mapped_column(ForeignKey('ai_conversations.id',ondelete='CASCADE'),index=True,nullable=False)
+ sender:Mapped[str]=mapped_column(String(20),nullable=False)
+ content:Mapped[str]=mapped_column(Text,nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+class AIRecommendation(Base):
+ __tablename__='ai_recommendations'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str|None]=mapped_column(ForeignKey('tasks.id',ondelete='SET NULL'),index=True,nullable=True)
+ created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ recommendation_type:Mapped[str]=mapped_column(String(60),nullable=False)
+ proposed_value:Mapped[str]=mapped_column(String(120),nullable=False)
+ rationale:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ evidence:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ status:Mapped[str]=mapped_column(String(20),default='pending',index=True,nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+class AIOverride(Base):
+ __tablename__='ai_overrides'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ recommendation_id:Mapped[str]=mapped_column(ForeignKey('ai_recommendations.id',ondelete='CASCADE'),index=True,nullable=False)
+ user_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ decision:Mapped[str]=mapped_column(String(20),nullable=False)
+ reason:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+class HandoverRecord(Base):
+ __tablename__='handover_records'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ user_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ summary:Mapped[str]=mapped_column(Text,nullable=False)
+ pending_items:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ blockers:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
