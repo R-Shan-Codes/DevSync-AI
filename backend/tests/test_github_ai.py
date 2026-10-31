@@ -200,12 +200,12 @@ def test_ai_github_task_link_rejects_foreign_project_task(client):
 
 def test_ai_github_redacts_bearer_jwt_slack_and_npm_tokens():
     value = (
-        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 "
+        "Authorization: Bearer bearer_secret_12345678901234567890 "
         "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturevalue123456 "
         "xoxb-1234567890-abcdefghijk npm_abcdefghijklmnopqrstuvwxyz123456"
     )
     redacted = redact_secrets(value)
-    assert "abcdefghijklmnopqrstuvwxyz123456" not in redacted
+    assert "bearer_secret_12345678901234567890" not in redacted
     assert "eyJhbGciOiJIUzI1NiJ9" not in redacted
     assert "xoxb-1234567890-abcdefghijk" not in redacted
     assert "npm_abcdefghijklmnopqrstuvwxyz123456" not in redacted
