@@ -8,6 +8,8 @@ let tree: TaskProvider
 let poll: ReturnType<typeof setInterval> | undefined
 let eventTimer: ReturnType<typeof setTimeout> | undefined
 let gitPoll: ReturnType<typeof setInterval> | undefined
+let notificationPoll: ReturnType<typeof setInterval> | undefined
+let notificationStatus: vscode.StatusBarItem | undefined
 let lastGitBranch = ''
 let lastGitCommit = ''
 let flushingEvents = false
@@ -19,11 +21,17 @@ export function activate(context: vscode.ExtensionContext) {
   api = new DevSyncApi(context)
   tree = new TaskProvider()
   context.subscriptions.push(vscode.window.registerTreeDataProvider('devsync.tasks', tree))
+  notificationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 80)
+  notificationStatus.command = 'devsync.showNotifications'
+  notificationStatus.text = '$(bell) DevSync'
+  notificationStatus.tooltip = 'Open DevSync notifications'
+  notificationStatus.show()
+  context.subscriptions.push(notificationStatus)
   context.subscriptions.push(vscode.commands.registerCommand('devsync.login', async () => {
     const email = await vscode.window.showInputBox({ prompt: 'DevSync account email', placeHolder: 'you@example.com' })
     const password = await vscode.window.showInputBox({ prompt: 'Password', password: true })
     if (!email || !password) return
-    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync'); void flushDevEvents(); void syncGitMetadata(); await refresh() }
+    try { await api!.login(email, password); vscode.window.showInformationMessage('Connected to DevSync'); void flushDevEvents(); void syncGitMetadata(); void refreshNotifications(); await refresh() }
     catch (e) { vscode.window.showErrorMessage(message(e)) }
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.refresh', refresh))
@@ -46,6 +54,48 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGit', syncGit))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.githubStatus', githubStatus))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGitHub', syncGitHub))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.aiAssist', async () => {
+    const prompt = await vscode.window.showInputBox({
+      prompt: 'Ask DevSync AI using your assigned project role',
+      placeHolder: 'Describe a feature, bug, implementation question or test scenario',
+      ignoreFocusOut: true,
+    })
+    if (!prompt?.trim()) return
+    try {
+      const result = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'DevSync AI is reviewing project context…' },
+        () => api!.aiAssist(prompt.trim()),
+      )
+      const document = await vscode.workspace.openTextDocument({
+        language: 'markdown',
+        content: `# DevSync AI · ${result.role.replaceAll('_', ' ')}\n\n${result.response}\n`,
+      })
+      await vscode.window.showTextDocument(document, { preview: false })
+    } catch (e) { vscode.window.showErrorMessage(message(e)) }
+  }))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.showNotifications', async () => {
+    try {
+      const inbox = await api!.notifications(true)
+      if (!inbox.items.length) {
+        vscode.window.showInformationMessage('DevSync: you have no unread notifications.')
+        await refreshNotifications()
+        return
+      }
+      const selected = await vscode.window.showQuickPick(
+        inbox.items.map(item => ({
+          label: item.title,
+          description: item.project_name,
+          detail: item.message,
+          item,
+        })),
+        { placeHolder: `${inbox.unread_count} unread DevSync notification(s)`, matchOnDetail: true },
+      )
+      if (!selected) return
+      await api!.markNotificationRead(selected.item.id)
+      vscode.window.showInformationMessage(`${selected.item.title}: ${selected.item.message}`)
+      await refreshNotifications()
+    } catch (e) { vscode.window.showErrorMessage(message(e)) }
+  }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.open', (task: Task) => vscode.window.showInformationMessage(`${task.title}\nStatus: ${task.status}`)))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.changeStatus', async (task: Task) => {
     if (!task) return
@@ -87,10 +137,21 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(watcher)
   context.subscriptions.push({ dispose: () => { if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() } })
   poll = setInterval(() => refresh(), 20000)
+  void refreshNotifications()
+  notificationPoll = setInterval(() => { void refreshNotifications() }, 60000)
+  context.subscriptions.push({ dispose: () => { if (notificationPoll) clearInterval(notificationPoll) } })
   context.subscriptions.push({ dispose: () => { if (poll) clearInterval(poll) } })
   refresh()
 }
-async function refresh() { try { if (!api || !(await api.hasToken())) return; tree.setTasks(await api.tasks()); } catch (e) { vscode.window.setStatusBarMessage('DevSync: unable to refresh tasks', 5000) } }
+async function refresh() { try { if (!api || !(await api.hasToken())) return; tree.setTasks(await api.tasks()); void refreshNotifications() } catch (e) { vscode.window.setStatusBarMessage('DevSync: unable to refresh tasks', 5000) } }
+async function refreshNotifications() {
+  if (!api || !(await api.hasToken())) { if (notificationStatus) notificationStatus.text = '$(bell) DevSync'; return }
+  try {
+    const inbox = await api.notifications(true)
+    notificationStatus!.text = inbox.unread_count ? `$(bell) ${inbox.unread_count} unread` : '$(bell) DevSync'
+    notificationStatus!.tooltip = inbox.unread_count ? `${inbox.unread_count} unread DevSync notifications · Click to open` : 'No unread DevSync notifications'
+  } catch { if (notificationStatus) notificationStatus.text = '$(bell) DevSync' }
+}
 async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} local commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 async function githubStatus() { try { const account = await api!.githubAccount(); vscode.window.showInformationMessage(account.connected ? `GitHub connected as @${account.login}` : 'GitHub is not connected. Connect it from the DevSync dashboard.') } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 async function syncGitHub() { try { const result = await api!.syncGitHub(); vscode.window.showInformationMessage(`Synced ${result.new_commits} commits from ${result.repository}`); await refresh() } catch (e) { vscode.window.showErrorMessage(message(e)) } }
@@ -222,4 +283,4 @@ class TaskItem extends vscode.TreeItem {
     this.iconPath = new vscode.ThemeIcon(task.status === 'merged' || task.status === 'passed' ? 'check' : task.status === 'failed' ? 'error' : 'circle-outline')
   }
 }
-export function deactivate() { if (poll) clearInterval(poll); if (gitPoll) clearInterval(gitPoll); if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() }
+export function deactivate() { if (poll) clearInterval(poll); if (gitPoll) clearInterval(gitPoll); if (notificationPoll) clearInterval(notificationPoll); if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() }
