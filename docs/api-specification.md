@@ -27,3 +27,11 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 
 ## GitHub webhook receiver
 - POST /github/webhooks — public GitHub webhook endpoint. Requires a configured `GITHUB_WEBHOOK_SECRET` and valid `X-Hub-Signature-256`, `X-GitHub-Delivery`, and `X-GitHub-Event` headers. Handles push, pull_request, check_run, and check_suite events for repositories linked to a project. Delivery IDs are persisted to prevent duplicate processing.
+
+
+## AI GitHub review and CI diagnosis
+- POST /github/projects/{project_id}/pull-requests/{pull_number}/review — fetches the linked repository pull-request diff and creates a persisted Gemini-assisted review. Requires project review permission and a connected GitHub account with repository access.
+- POST /github/projects/{project_id}/checks/{commit_sha}/analyze — finds failed Actions runs for a commit, collects failed job/step evidence and available logs, and creates a persisted Gemini diagnosis. Requires project membership and a connected GitHub account with Actions log access.
+- GET /github/projects/{project_id}/ai-analyses?limit=20 — lists persisted AI review and CI diagnosis history for project members.
+
+AI analysis requires GEMINI_API_KEY. Diffs/logs are truncated and common credential patterns are redacted before sending to Gemini. AI findings are advisory, require human verification, and never approve, merge, or modify code.
