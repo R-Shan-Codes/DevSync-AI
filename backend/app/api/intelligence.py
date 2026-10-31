@@ -15,7 +15,7 @@ from app.dependencies import get_current_user, get_project_member, record_activi
 from app.models import (
     AIConversation, AIMessage, AIOverride, AIRecommendation, CommitTaskLink,
     DevelopmentEvent, FileChange, GitEvent, HandoverRecord,
-    Task, TaskDependency, User,
+    Task, TaskDependency, TaskStatus, User,
 )
 from app.permissions import require_permission, normalize_role
 from app.realtime import manager
@@ -475,3 +475,133 @@ def my_developer_memory(project_id: str, limit: int = Query(default=50, ge=1, le
                        "pending_items": json.loads(item.pending_items), "blockers": json.loads(item.blockers),
                        "created_at": item.created_at.isoformat()} for item in handovers],
     }
+
+
+# AI workflow intelligence: suggestions are persisted for review, never applied automatically.
+@router.post("/projects/{project_id}/ai/task-recommendations", status_code=201)
+async def generate_task_recommendations(project_id: str, db: Session = Depends(get_db),
+                                        user: User = Depends(get_current_user)):
+    project, member = get_project_member(project_id, db, user)
+    require_permission(member, "view")
+    if not settings.gemini_api_key:
+        raise HTTPException(status_code=503, detail="AI is not configured. Add GEMINI_API_KEY to backend/.env.")
+    tasks = db.scalars(select(Task).where(Task.project_id == project_id)
+                       .order_by(Task.updated_at.desc()).limit(80)).all()
+    if not tasks:
+        return {"generated": 0, "recommendations": []}
+    events = db.scalars(select(DevelopmentEvent).where(
+        DevelopmentEvent.project_id == project_id
+    ).order_by(DevelopmentEvent.created_at.desc()).limit(40)).all()
+    context = {
+        "project": {"name": project.name, "description": project.description},
+        "tasks": [{"id": t.id, "title": t.title, "description": t.description,
+                   "status": t.status.value, "assignee_id": t.assignee_id,
+                   "updated_at": t.updated_at.isoformat()} for t in tasks],
+        "recent_development_events": [{"type": e.event_type, "payload": json.loads(e.payload),
+                                       "created_at": e.created_at.isoformat()} for e in events],
+    }
+    prompt = (
+        "You are DevSync's senior engineering delivery analyst. Analyze the supplied project facts. "
+        "Return ONLY a JSON array of at most 8 actionable task recommendations. Each item must have "
+        "task_id, recommendation_type, proposed_value, rationale, evidence (array of short strings). "
+        "recommendation_type must be task_status, risk, or next_action. For task_status, proposed_value "
+        "must be one of: in_progress, submitted, in_review, ready_for_testing, testing, failed, passed, "
+        "ready_for_merge, merged, cancelled. Recommend only a plausible next step; do not claim work "
+        "is complete without evidence. Do not invent dates, commits, tests, people, or file contents. "
+        "If evidence is insufficient, return fewer recommendations or an empty array.\nPROJECT DATA:\n"
+        + json.dumps(context, ensure_ascii=False)
+    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await client.post(url, params={"key": settings.gemini_api_key},
+                json={"contents": [{"parts": [{"text": prompt}]}],
+                      "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2500}})
+        response.raise_for_status()
+        raw = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        raw = re.sub(r"^\x60{3}(?:json)?\s*|\s*\x60{3}$", "", raw, flags=re.I)
+        generated = json.loads(raw)
+        if not isinstance(generated, list):
+            raise ValueError("Expected a JSON array")
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini API returned HTTP {exc.response.status_code}") from exc
+    except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=502, detail="Gemini did not return valid task recommendations") from exc
+
+    tasks_by_id = {task.id: task for task in tasks}
+    allowed_statuses = {status.value for status in TaskStatus}
+    created = []
+    for item in generated[:8]:
+        if not isinstance(item, dict):
+            continue
+        task_id = item.get("task_id")
+        kind = item.get("recommendation_type")
+        proposed = str(item.get("proposed_value", ""))[:120]
+        task = tasks_by_id.get(task_id)
+        if not task or kind not in {"task_status", "risk", "next_action"}:
+            continue
+        if kind == "task_status" and proposed not in allowed_statuses:
+            continue
+        evidence = item.get("evidence", [])
+        if not isinstance(evidence, list):
+            evidence = []
+        row = AIRecommendation(
+            project_id=project_id, task_id=task.id, created_by_id=user.id,
+            recommendation_type=kind, proposed_value=proposed,
+            rationale=str(item.get("rationale", ""))[:10000],
+            evidence=json.dumps([str(x)[:500] for x in evidence[:10]], ensure_ascii=False),
+        )
+        db.add(row)
+        created.append(row)
+    db.commit()
+    for row in created:
+        db.refresh(row)
+    record_activity(db, project_id, user.id, "ai.task_recommendations_generated",
+                    {"count": len(created)})
+    db.commit()
+    return {"generated": len(created), "recommendations": [
+        {"id": row.id, "task_id": row.task_id, "recommendation_type": row.recommendation_type,
+         "proposed_value": row.proposed_value, "rationale": row.rationale,
+         "evidence": json.loads(row.evidence), "status": row.status,
+         "created_at": row.created_at.isoformat()} for row in created
+    ]}
+
+
+@router.get("/projects/{project_id}/intelligence/commit-task-suggestions")
+def suggest_commit_tasks(project_id: str, limit: int = Query(default=50, ge=1, le=200),
+                          db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    get_project_member(project_id, db, user)
+    commits = db.scalars(select(GitEvent).where(GitEvent.project_id == project_id)
+                          .order_by(GitEvent.committed_at.desc()).limit(limit)).all()
+    tasks = db.scalars(select(Task).where(Task.project_id == project_id)).all()
+    links = db.scalars(select(CommitTaskLink).where(CommitTaskLink.project_id == project_id)).all()
+    linked = {(link.commit_hash, link.task_id) for link in links}
+
+    def tokens(value: str) -> set[str]:
+        return {part for part in re.findall(r"[a-z0-9]{3,}", value.lower())
+                if part not in {"the", "and", "for", "with", "from", "fix", "feat", "update"}}
+
+    suggestions = []
+    for commit in commits:
+        commit_tokens = tokens(commit.message)
+        if not commit_tokens:
+            continue
+        candidates = []
+        for task in tasks:
+            if (commit.commit_hash, task.id) in linked:
+                continue
+            task_tokens = tokens(task.title + " " + task.description)
+            if not task_tokens:
+                continue
+            overlap = len(commit_tokens & task_tokens)
+            score = overlap / max(1, len(commit_tokens | task_tokens))
+            if overlap:
+                candidates.append({"task_id": task.id, "task_title": task.title,
+                                   "status": task.status.value, "confidence": round(min(0.95, score * 1.8), 2),
+                                   "matched_terms": sorted(commit_tokens & task_tokens)})
+        candidates.sort(key=lambda item: item["confidence"], reverse=True)
+        if candidates and candidates[0]["confidence"] >= 0.15:
+            suggestions.append({"commit_hash": commit.commit_hash, "message": commit.message,
+                                 "author": commit.author, "committed_at": commit.committed_at,
+                                 "candidates": candidates[:3]})
+    return {"suggestions": suggestions, "note": "Heuristic candidates only. Confirm a match to create an explicit commit-task link."}
