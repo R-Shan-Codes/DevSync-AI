@@ -2,7 +2,7 @@ import json
 
 from app.core.database import get_db
 from app.main import app
-from app.models import AIReviewArtifact, User
+from app.models import AIReviewArtifact, Project, User
 from app.api.github_ai import normalize_findings, parse_ai_json, redact_secrets
 
 
@@ -52,6 +52,16 @@ def test_ai_github_analysis_requires_project_and_valid_commit_sha(client):
 def test_ai_github_review_requires_connected_github_account(client):
     headers = register(client, "github-ai-account@example.com")
     project = client.post("/api/v1/projects", headers=headers, json={"name": "AI GitHub Project"}).json()
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        record = db.get(Project, project["id"])
+        record.github_repo_full_name = "acme/devsync"
+        record.github_repo_url = "https://github.com/acme/devsync"
+        record.github_default_branch = "main"
+        db.commit()
+    finally:
+        generator.close()
     response = client.post(
         f"/api/v1/github/projects/{project['id']}/pull-requests/12/review",
         headers=headers,
