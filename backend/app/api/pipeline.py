@@ -1,10 +1,12 @@
+import json
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member
-from app.models import BugReport, CodeReview, ProjectMember, ProjectRole, Task, TaskDependency, TaskStatus, TestRun, User
+from app.models import AIReviewArtifact, AIReviewTaskLink, BugReport, CodeReview, ProjectMember, ProjectRole, Task, TaskDependency, TaskStatus, TestRun, User
 
 router = APIRouter(prefix="/projects/{project_id}/pipeline", tags=["development pipeline"])
 
@@ -50,6 +52,29 @@ def get_pipeline(project_id: str, db: Session = Depends(get_db), user: User = De
     bugs = db.scalars(
         select(BugReport).where(BugReport.project_id == project_id, BugReport.status == "open")
     ).all()
+
+    ai_review_links = db.execute(
+        select(AIReviewTaskLink, AIReviewArtifact)
+        .join(AIReviewArtifact, AIReviewArtifact.id == AIReviewTaskLink.artifact_id)
+        .where(AIReviewTaskLink.project_id == project_id)
+        .order_by(AIReviewArtifact.created_at.desc())
+    ).all()
+    latest_ai_review: dict[str, dict] = {}
+    for link, artifact in ai_review_links:
+        if link.task_id in latest_ai_review:
+            continue
+        try:
+            findings = json.loads(artifact.findings or "[]")
+        except (TypeError, ValueError):
+            findings = []
+        latest_ai_review[link.task_id] = {
+            "artifact_id": artifact.id,
+            "artifact_type": artifact.artifact_type,
+            "source_key": artifact.source_key,
+            "summary": artifact.summary,
+            "finding_count": len(findings) if isinstance(findings, list) else 0,
+            "created_at": artifact.created_at.isoformat(),
+        }
 
     prerequisites: dict[str, list[str]] = {}
     for dependency in dependencies:
@@ -163,6 +188,7 @@ def get_pipeline(project_id: str, db: Session = Depends(get_db), user: User = De
             "open_bug_count": open_bugs.get(task.id, 0),
             "latest_review": {"decision": review.decision, "summary": review.summary} if review else None,
             "latest_test_run": {"result": test_run.result, "passed": test_run.passed, "failed": test_run.failed, "total": test_run.total} if test_run else None,
+            "latest_ai_review": latest_ai_review.get(task.id),
             "gates": gates,
             "ready_for_next_step": not gates and task.status not in {TaskStatus.merged, TaskStatus.cancelled},
             "next_action": next_action,
