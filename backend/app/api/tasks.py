@@ -59,7 +59,8 @@ def list_tasks(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    get_project_member(project_id, db, user)
+    _, member = get_project_member(project_id, db, user)
+    require_permission(member, "view")
     statement = select(Task).where(Task.project_id == project_id)
     if q and q.strip():
         search = f"%{q.strip()}%"
@@ -112,12 +113,12 @@ async def update_task(project_id: str, task_id: str, data: TaskUpdate, db: Sessi
             raise HTTPException(status_code=409, detail=f"Invalid task transition: {task.status.value} -> {new_status.value}")
         if new_status == TaskStatus.in_review:
             require_permission(member, "review")
-        if new_status == TaskStatus.approved:
+        elif new_status == TaskStatus.approved:
             require_permission(member, "approve")
-        if new_status in {TaskStatus.testing, TaskStatus.passed, TaskStatus.failed}:
-            require_permission(member, "edit")
-        if new_status == TaskStatus.merged:
+        elif new_status == TaskStatus.merged:
             require_permission(member, "merge")
+        else:
+            require_permission(member, "edit")
         record_activity(db, project_id, user.id, "task.status_changed", {"task_id": task.id, "from": task.status.value, "to": new_status.value})
     for key, value in changes.items():
         if value is not None or key in {"due_date", "cycle_id", "milestone_id", "parent_task_id"}:
@@ -129,7 +130,8 @@ async def update_task(project_id: str, task_id: str, data: TaskUpdate, db: Sessi
 
 @router.get("/{task_id}/comments", response_model=list[TaskCommentRead])
 def list_task_comments(project_id: str, task_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    get_project_member(project_id, db, user)
+    _, member = get_project_member(project_id, db, user)
+    require_permission(member, "view")
     task = db.scalar(select(Task).where(Task.id == task_id, Task.project_id == project_id))
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
