@@ -87,3 +87,29 @@ npm run compile
 ```
 
 These commands must be executed in the development environment. A source update or successful GitHub commit does not establish that tests passed.
+
+
+## AI workflow intelligence dashboard milestone
+
+This follow-on milestone adds a dashboard surface for the persistent intelligence layer.
+
+### AI task recommendations
+- POST `/api/v1/projects/{project_id}/ai/task-recommendations` sends project task state and recent development-event metadata to the configured Gemini model.
+- The model may return up to eight task-scoped recommendations. Responses are validated against project task IDs and supported recommendation types before persistence.
+- Recommendations remain pending until a member accepts, rejects or modifies them through the existing override endpoint. No task status or assignment is changed automatically.
+- Gemini must be configured with `GEMINI_API_KEY`; the endpoint returns 503 when it is absent and 502 for invalid provider responses.
+
+### Commit-to-task candidate matching
+- GET `/api/v1/projects/{project_id}/intelligence/commit-task-suggestions` compares commit-message tokens with task title/description tokens.
+- It returns ranked candidates with heuristic confidence and matched terms. It does not create links.
+- A developer must explicitly confirm a candidate through POST `/api/v1/projects/{project_id}/intelligence/commit-links`.
+
+### Dashboard
+- Adds an AI Development Intelligence navigation view with event/file activity, intelligence metrics, AI recommendation review controls and explicit commit-link confirmation.
+- File contents are not uploaded or displayed; the UI consumes metadata only.
+- Adds a frontend GitHub Actions workflow that runs the TypeScript build on pull requests and pushes to main.
+
+### Verification
+- Added backend endpoint tests for project-scoped intelligence summaries, empty commit matching and the missing-Gemini configuration guard.
+- CI runs backend pytest, frontend TypeScript/Vite build and VS Code extension compilation.
+- Local browser testing with a configured Gemini key remains required after merge.
