@@ -1,0 +1,24 @@
+import { useEffect, useState } from 'react'
+import { GitBranch, GitCommit, RefreshCw, ShieldCheck } from 'lucide-react'
+import { request } from './api'
+type Props={token:string;projectId:string}
+type Status={branch:string;clean:boolean;changes:{status:string;path:string}[];last_commit:string}
+type Branch={name:string;current:boolean}
+type Event={id:string;branch:string;commit_hash:string;author:string;message:string;committed_at:string}
+export default function GitMonitor({token,projectId}:Props){
+ const [path,setPath]=useState('');const [status,setStatus]=useState<Status|null>(null);const [branches,setBranches]=useState<Branch[]>([]);const [events,setEvents]=useState<Event[]>([]);const [busy,setBusy]=useState(false);const [message,setMessage]=useState('')
+ const query=()=>`repository_path=${encodeURIComponent(path.trim())}`
+ async function refresh(){if(!projectId||!path.trim()){setMessage('Enter a repository path relative to the backend WORKSPACE_ROOT.');return}setBusy(true);setMessage('');try{const [s,b,e]=await Promise.all([request<Status>(`/projects/${projectId}/git/status?${query()}`,token),request<Branch[]>(`/projects/${projectId}/git/branches?${query()}`,token),request<Event[]>(`/projects/${projectId}/git/events?limit=50`,token)]);setStatus(s);setBranches(b);setEvents(e)}catch(e){setMessage(e instanceof Error?e.message:'Git monitoring request failed')}finally{setBusy(false)}}
+ async function sync(){if(!projectId||!path.trim()){setMessage('Enter a repository path first.');return}setBusy(true);setMessage('');try{const added=await request<Event[]>(`/projects/${projectId}/git/sync`,token,{method:'POST',body:JSON.stringify({repository_path:path.trim(),commit_limit:50})});setMessage(`Git sync complete. ${added.length} new commits imported.`);await refresh()}catch(e){setMessage(e instanceof Error?e.message:'Git sync failed')}finally{setBusy(false)}}
+ useEffect(()=>{setStatus(null);setBranches([]);setEvents([])},[projectId])
+ return <div className="git-monitor"><section className="panel"><div className="panel-heading"><div><h3>Live Git repository monitor</h3><p className="muted">Read-only local repository status, branches, working-tree changes and commit history.</p></div><GitBranch size={18}/></div>
+  <label className="git-path">Repository path relative to backend WORKSPACE_ROOT<input value={path} onChange={e=>setPath(e.target.value)} placeholder="e.g. DevSync-AI or ."/></label>
+  <div className="github-actions"><button className="primary" disabled={busy||!projectId} onClick={refresh}><RefreshCw size={15}/>{busy?'Loading…':'Refresh status'}</button><button className="primary" disabled={busy||!projectId} onClick={sync}>Sync commits</button></div>
+  {message&&<div className="github-message">{message}</div>}
+ </section>
+ {status&&<><section className="stats-grid"><div className="stat-card"><GitBranch size={18}/><span>Current branch</span><strong className="git-stat-text">{status.branch||'(detached)'}</strong></div><div className="stat-card"><ShieldCheck size={18}/><span>Working tree</span><strong className="git-stat-text">{status.clean?'Clean':'Changes detected'}</strong></div><div className="stat-card"><GitCommit size={18}/><span>Tracked branches</span><strong>{branches.length}</strong></div><div className="stat-card"><GitCommit size={18}/><span>Imported commits</span><strong>{events.length}</strong></div></section>
+ <section className="panel"><div className="panel-heading"><div><h3>Branches</h3><p className="muted">Local branches discovered in the repository.</p></div><GitBranch size={18}/></div>{branches.length?branches.map(b=><div className="role-task-row git-row" key={b.name}><b>{b.name}</b><span className={b.current?'pill':'role'}>{b.current?'Current branch':'Local branch'}</span></div>):<p className="muted">No local branches found.</p>}</section>
+ <section className="panel"><div className="panel-heading"><div><h3>Uncommitted changes</h3><p className="muted">Working-tree changes reported by Git.</p></div></div>{status.changes.length?status.changes.map((c,i)=><div className="role-task-row git-row" key={`${c.path}-${i}`}><b>{c.path}</b><span className="role">{c.status.trim()||'Modified'}</span></div>):<p className="muted">Working tree is clean.</p>}</section>
+ <section className="panel"><div className="panel-heading"><div><h3>Recent commits</h3><p className="muted">Commits imported into the project activity database.</p></div><GitCommit size={18}/></div>{events.length?events.map(e=><div className="activity-row" key={e.id}><div className="activity-dot"/><div><b>{e.message}</b><small>{e.author} · {e.branch} · {e.commit_hash.slice(0,8)} · {new Date(e.committed_at).toLocaleString()}</small></div></div>):<p className="muted">No commits imported yet. Use Sync commits.</p>}</section></>}
+ </div>
+}
