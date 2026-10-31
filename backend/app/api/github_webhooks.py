@@ -4,6 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -105,9 +106,17 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
     secret = settings.github_webhook_secret
     if not secret:
         raise HTTPException(status_code=503, detail="GitHub webhook integration is not configured.")
-    body = await request.body()
-    if len(body) > 2_000_000:
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > 2_000_000:
         raise HTTPException(status_code=413, detail="Webhook payload exceeds the 2 MB limit.")
+    chunks = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 2_000_000:
+            raise HTTPException(status_code=413, detail="Webhook payload exceeds the 2 MB limit.")
+        chunks.append(chunk)
+    body = b"".join(chunks)
     signature = request.headers.get("X-Hub-Signature-256", "")
     if not _verify_signature(body, signature, secret):
         raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature.")
@@ -171,7 +180,18 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         ))
         outbound = [{"type": "github.check", "data": details}]
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # GitHub may retry or concurrently deliver the same delivery. The
+        # unique delivery ID is the final idempotency guard at the database.
+        db.rollback()
+        duplicate = db.scalar(select(GitHubWebhookDelivery).where(
+            GitHubWebhookDelivery.delivery_id == delivery_id
+        ))
+        if duplicate:
+            return {"accepted": True, "duplicate": True, "outcome": duplicate.outcome}
+        raise
     if project:
         for event in outbound:
             await manager.broadcast(project.id, event)
