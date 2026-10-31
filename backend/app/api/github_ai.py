@@ -29,6 +29,10 @@ MAX_LOG_ARCHIVE_BYTES = 10_000_000
 MAX_LOG_ARCHIVE_FILES = 20
 
 SECRET_PATTERNS = [
+    re.compile(r"(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]{20,}"),
+    re.compile(r"\\beyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\b"),
+    re.compile(r"\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"),
+    re.compile(r"\\bnpm_[A-Za-z0-9]{20,}\\b"),
     re.compile(r"(?i)\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"),
     re.compile(r"\bAIza[0-9A-Za-z_-]{25,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
