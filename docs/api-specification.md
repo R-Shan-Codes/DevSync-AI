@@ -62,3 +62,14 @@ Requires project review permission. Runs a live, non-persistent diagnostic of Gi
 - GET /projects/{project_id}/tasks/{task_id}/comments — lists task discussion in chronological order for project members.
 - POST /projects/{project_id}/tasks/{task_id}/comments — creates a task comment (body up to 5,000 characters); requires project edit permission.
 - Comments are scoped to both project and task, recorded in project activity and broadcast over the project WebSocket.
+
+
+## Project planning: cycles, milestones and task hierarchy
+- GET /projects/{project_id}/cycles — list project delivery cycles.
+- POST /projects/{project_id}/cycles — create a cycle with name, goal, start_date and end_date; end date cannot precede start date.
+- PATCH /projects/{project_id}/cycles/{cycle_id} — update cycle details or status (`planned`, `active`, `completed`).
+- GET /projects/{project_id}/milestones — list project milestones ordered by target date.
+- POST /projects/{project_id}/milestones — create a milestone with optional due_date.
+- PATCH /projects/{project_id}/milestones/{milestone_id} — update milestone details or status (`planned`, `in_progress`, `completed`).
+- Task create/update accepts `cycle_id`, `milestone_id` and `parent_task_id`. Every referenced record must belong to the same project. Parent-child cycles are rejected.
+- Planning writes require project edit permission. Reads require project membership. Mutations create project activity and broadcast WebSocket events.
