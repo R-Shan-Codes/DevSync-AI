@@ -243,7 +243,7 @@ async def check_external_integrations(
 ):
     """Run an explicit, non-persistent live check of configured project integrations."""
     project, member = get_project_member(project_id, db, user)
-    require_permission(member, "view")
+    require_permission(member, "review")
     checks = []
 
     def add_check(key: str, label: str, status: str, detail: str):
