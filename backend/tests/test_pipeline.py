@@ -62,3 +62,51 @@ def test_pipeline_is_project_scoped(client):
     response = client.get(f"/api/v1/projects/{project['id']}/pipeline", headers=second)
 
     assert response.status_code == 404  # Project membership intentionally hides private project existence.
+
+
+def test_pipeline_surfaces_task_linked_ai_review_as_advisory_evidence(client):
+    import json
+    from app.core.database import get_db
+    from app.main import app
+    from app.models import AIReviewArtifact, AIReviewTaskLink, User
+
+    headers = register(client, "pipeline-ai-evidence@example.com")
+    project = client.post("/api/v1/projects", headers=headers, json={"name": "AI evidence pipeline"}).json()
+    task = client.post(
+        f"/api/v1/projects/{project['id']}/tasks",
+        headers=headers,
+        json={"title": "Fix token refresh"},
+    ).json()
+
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        user = db.query(User).filter_by(email="pipeline-ai-evidence@example.com").one()
+        artifact = AIReviewArtifact(
+            project_id=project["id"],
+            requester_id=user.id,
+            artifact_type="pull_request_review",
+            source_key="pr:51",
+            summary="Review identified a possible token refresh race.",
+            findings=json.dumps([{"severity": "high", "title": "Race condition"}]),
+        )
+        db.add(artifact)
+        db.commit()
+        db.add(AIReviewTaskLink(
+            artifact_id=artifact.id,
+            project_id=project["id"],
+            task_id=task["id"],
+            linked_by_id=user.id,
+        ))
+        db.commit()
+    finally:
+        generator.close()
+
+    response = client.get(f"/api/v1/projects/{project['id']}/pipeline", headers=headers)
+    assert response.status_code == 200
+    row = next(item for item in response.json()["tasks"] if item["task_id"] == task["id"])
+    assert row["latest_ai_review"]["source_key"] == "pr:51"
+    assert row["latest_ai_review"]["finding_count"] == 1
+    # AI findings are advisory and do not silently block or advance the task.
+    assert row["status"] == "backlog"
+    assert row["ready_for_next_step"] is True
