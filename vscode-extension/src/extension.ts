@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
   watcher.onDidDelete(uri => queueFileEvent('file.deleted', uri))
   context.subscriptions.push(watcher)
   context.subscriptions.push({ dispose: () => { if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() } })
-  poll = setInterval(() => refresh(), 60000)
+  poll = setInterval(() => refresh(), 20000)
   context.subscriptions.push({ dispose: () => { if (poll) clearInterval(poll) } })
   refresh()
 }
