@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
@@ -27,14 +28,23 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
     branch = ref.removeprefix("refs/heads/")[:255] or "unknown"
     repository = project.github_repo_full_name or ""
     created_events = []
-    for commit in payload.get("commits") or []:
-        commit_hash = str(commit.get("id") or "")
-        if len(commit_hash) != 40 or db.scalar(select(GitEvent.id).where(
+    commits = payload.get("commits") or []
+    if not isinstance(commits, list):
+        commits = []
+    for commit in commits:
+        if not isinstance(commit, dict):
+            continue
+        commit_hash = str(commit.get("id") or "").lower()
+        if not re.fullmatch(r"[0-9a-f]{40}", commit_hash) or db.scalar(select(GitEvent.id).where(
             GitEvent.project_id == project.id, GitEvent.commit_hash == commit_hash
         )):
             continue
         raw_author = commit.get("author") or {}
         github_author = commit.get("committer") or {}
+        if not isinstance(raw_author, dict):
+            raw_author = {}
+        if not isinstance(github_author, dict):
+            github_author = {}
         event = GitEvent(
             project_id=project.id,
             actor_id=project.owner_id,
@@ -88,6 +98,10 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
 def _record_pull_request(db: Session, project: Project, action: str, payload: dict) -> dict:
     pull_request = payload.get("pull_request") or {}
     sender = payload.get("sender") or {}
+    if not isinstance(pull_request, dict):
+        pull_request = {}
+    if not isinstance(sender, dict):
+        sender = {}
     details = {
         "repository": project.github_repo_full_name,
         "action": action,
@@ -147,6 +161,8 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         return {"accepted": True, "duplicate": True, "outcome": existing.outcome}
 
     repository = payload.get("repository") or {}
+    if not isinstance(repository, dict):
+        repository = {}
     repository_full_name = str(repository.get("full_name") or "")[:255]
     project = db.scalar(select(Project).where(
         func.lower(Project.github_repo_full_name) == repository_full_name.lower()
@@ -170,6 +186,11 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         outbound = [_record_pull_request(db, project, action, payload)]
     elif project and event_type in {"check_run", "check_suite"}:
         check = payload.get("check_run") or payload.get("check_suite") or {}
+        if not isinstance(check, dict):
+            check = {}
+        sender = payload.get("sender") or {}
+        if not isinstance(sender, dict):
+            sender = {}
         details = {
             "repository": repository_full_name,
             "event": event_type,
@@ -179,6 +200,7 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
             "conclusion": check.get("conclusion"),
             "html_url": check.get("html_url"),
             "head_sha": str(check.get("head_sha") or "")[:40],
+            "sender": str(sender.get("login") or "unknown")[:100],
         }
         db.add(ActivityEvent(
             project_id=project.id,
