@@ -253,3 +253,11 @@ def test_github_log_download_stream_reads_valid_bounded_body():
             assert result == b"small log"
 
     asyncio.run(run())
+
+
+def test_github_job_log_extraction_caps_decompressed_text():
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+        zipped.writestr("logs/large.txt", "x" * 100_000)
+    result = extract_job_logs(archive.getvalue())
+    assert len(result) == 45_000
