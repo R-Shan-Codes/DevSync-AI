@@ -52,3 +52,6 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 - AI PR diff downloads are capped at 2 MB before text truncation/redaction. GitHub Actions log downloads are streamed with a 10 MB cap; ZIP extraction is limited to 20 log files and 45,000 characters.
 - Gemini API key is sent using the `x-goog-api-key` header. Common GitHub, Google, AWS, bearer, JWT, Slack and npm credential formats are redacted before analysis.
 - Live OAuth, webhook delivery and Gemini API verification are deployment-dependent; see `docs/live-github-ai-integration.md`.
+
+### POST /github/projects/{project_id}/integration-check
+Requires project view permission. Runs a live, non-persistent diagnostic of GitHub OAuth configuration, the connected GitHub account, access to the project's linked repository, Gemini API connectivity and webhook-secret configuration. Returns an overall status and per-integration status/detail records. It never returns credentials. A configured webhook secret is reported as a warning because public inbound delivery must be verified from GitHub's webhook delivery history.
