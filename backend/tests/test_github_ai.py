@@ -328,7 +328,6 @@ def _connect_github_for_test(client, email, project_id, monkeypatch):
         db.commit()
     finally:
         generator.close()
-    return httpx.AsyncClient
 
 
 def test_pull_request_review_route_uses_linked_repo_and_redacts_diff_before_gemini(
