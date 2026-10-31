@@ -29,7 +29,7 @@ type Pipeline = { total_tasks: number; stage_counts: Record<string, number>; tas
 
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
 
-export default function PipelineCenter({ token, projectId }: { token: string; projectId: string }) {
+export default function PipelineCenter({ token, projectId, revision }: { token: string; projectId: string; revision:number }) {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,7 +47,7 @@ export default function PipelineCenter({ token, projectId }: { token: string; pr
     }
   }
 
-  useEffect(() => { setPipeline(null); refresh() }, [token, projectId])
+  useEffect(() => { setPipeline(null); refresh() }, [token, projectId, revision])
 
   if (!projectId) return <section className="panel muted">Select a project to view its development pipeline.</section>
   if (error) return <section className="panel"><div className="error">{error}</div><button className="primary" onClick={refresh}>Retry</button></section>
