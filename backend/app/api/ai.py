@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_project_member
-from app.models import ActivityEvent, GitEvent, Task, TaskStatus, User
+from app.models import ActivityEvent, CodeReview, DevelopmentEvent, FileChange, GitEvent, ProjectMember, Task, TaskStatus, TestRun, User
 from app.schemas import AIAssistRequest
 from app.permissions import normalize_role
 
@@ -59,13 +59,84 @@ def insights(project_id: str, db: Session = Depends(get_db), user: User = Depend
     tasks = db.scalars(select(Task).where(Task.project_id == project_id)).all()
     commits = db.scalars(select(GitEvent).where(GitEvent.project_id == project_id)).all()
     activity = db.scalars(select(ActivityEvent).where(ActivityEvent.project_id == project_id)).all()
-    by_status = {status.value: sum(t.status == status for t in tasks) for status in TaskStatus}
+    development_events = db.scalars(select(DevelopmentEvent).where(DevelopmentEvent.project_id == project_id)).all()
+    file_changes = db.scalars(select(FileChange).where(FileChange.project_id == project_id)).all()
+    reviews = db.scalars(select(CodeReview).where(CodeReview.project_id == project_id)).all()
+    test_runs = db.scalars(select(TestRun).where(TestRun.project_id == project_id)).all()
+    members = db.scalars(select(ProjectMember).where(ProjectMember.project_id == project_id)).all()
+    users = {member.user_id: db.get(User, member.user_id) for member in members}
+    by_email = {u.email.lower(): u for u in users.values() if u}
+
     by_contributor = {}
+    def contributor(key, display_name):
+        item = by_contributor.setdefault(key, {
+            "user_id": key if key in users else None,
+            "author": display_name,
+            "commits": 0,
+            "active_branches": set(),
+            "development_events": 0,
+            "files_touched": 0,
+            "tasks_assigned": 0,
+            "tasks_completed": 0,
+            "reviews_submitted": 0,
+            "test_runs": 0,
+            "tests_passed": 0,
+            "tests_failed": 0,
+        })
+        return item
+
     for commit in commits:
-        key = commit.author_email or commit.author
-        item = by_contributor.setdefault(key, {"author": commit.author, "commits": 0, "branches": set()})
+        member_user = by_email.get((commit.author_email or "").lower())
+        key = member_user.id if member_user else (commit.author_email or commit.author)
+        item = contributor(key, member_user.display_name if member_user else commit.author)
         item["commits"] += 1
-        item["branches"].add(commit.branch)
-    contributors = [{"author": x["author"], "commits": x["commits"], "active_branches": len(x["branches"])} for x in by_contributor.values()]
-    contributors.sort(key=lambda x: x["commits"], reverse=True)
-    return {"task_counts": by_status, "total_tasks": len(tasks), "completed_tasks": by_status["merged"] + by_status["passed"], "git_commits": len(commits), "activity_events": len(activity), "contributors": contributors}
+        item["active_branches"].add(commit.branch)
+
+    for event in development_events:
+        member_user = users.get(event.actor_id)
+        if member_user:
+            contributor(member_user.id, member_user.display_name)["development_events"] += 1
+    for change in file_changes:
+        member_user = users.get(change.actor_id)
+        if member_user:
+            contributor(member_user.id, member_user.display_name)["files_touched"] += 1
+    for task in tasks:
+        member_user = users.get(task.assignee_id) if task.assignee_id else None
+        if member_user:
+            item = contributor(member_user.id, member_user.display_name)
+            item["tasks_assigned"] += 1
+            if task.status in {TaskStatus.passed, TaskStatus.merged}:
+                item["tasks_completed"] += 1
+    for review in reviews:
+        member_user = users.get(review.reviewer_id)
+        if member_user:
+            contributor(member_user.id, member_user.display_name)["reviews_submitted"] += 1
+    for run in test_runs:
+        member_user = users.get(run.tester_id)
+        if member_user:
+            item = contributor(member_user.id, member_user.display_name)
+            item["test_runs"] += 1
+            item["tests_passed"] += run.passed
+            item["tests_failed"] += run.failed
+
+    contributors = []
+    for item in by_contributor.values():
+        item["active_branches"] = len(item["active_branches"])
+        contributors.append(item)
+    contributors.sort(
+        key=lambda item: (
+            item["tasks_completed"], item["reviews_submitted"],
+            item["test_runs"], item["commits"], item["development_events"],
+        ),
+        reverse=True,
+    )
+    by_status = {status.value: sum(t.status == status for t in tasks) for status in TaskStatus}
+    return {
+        "task_counts": by_status,
+        "total_tasks": len(tasks),
+        "completed_tasks": by_status["merged"] + by_status["passed"],
+        "git_commits": len(commits),
+        "activity_events": len(activity),
+        "contributors": contributors,
+        "contribution_methodology": "Counts observable project work: assigned task completion, reviews, recorded test runs, Git commits, development events and tracked file-change metadata. It is not a quality score or an individual performance ranking.",
+    }
