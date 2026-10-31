@@ -40,6 +40,7 @@ async def create_task(project_id: str, data: TaskCreate, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="Parent task must belong to this project")
     task = Task(project_id=project_id, title=data.title.strip(), description=data.description, assignee_id=data.assignee_id, created_by_id=user.id, priority=data.priority, due_date=data.due_date, cycle_id=data.cycle_id, milestone_id=data.milestone_id, parent_task_id=data.parent_task_id)
     db.add(task)
+    db.flush()
     if data.assignee_id:
         add_notification(
             db,
