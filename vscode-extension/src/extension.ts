@@ -1,10 +1,16 @@
 import * as vscode from 'vscode'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { DevEvent, DevSyncApi, Task } from './service'
 
 let api: DevSyncApi | undefined
 let tree: TaskProvider
 let poll: ReturnType<typeof setInterval> | undefined
 let eventTimer: ReturnType<typeof setTimeout> | undefined
+let gitPoll: ReturnType<typeof setInterval> | undefined
+let lastGitBranch = ''
+let lastGitCommit = ''
+const execFileAsync = promisify(execFile)
 let pendingEvents: DevEvent[] = []
 
 export function activate(context: vscode.ExtensionContext) {
@@ -58,6 +64,20 @@ export function activate(context: vscode.ExtensionContext) {
     if(!severity)return
     try{await api!.reportBug(task.id,title.trim(),description.trim(),severity);vscode.window.showInformationMessage('Bug report submitted to DevSync');await refresh()}catch(e){vscode.window.showErrorMessage(message(e))}
   }))
+  const folders = vscode.workspace.workspaceFolders
+  if (folders?.length) {
+    pendingEvents.push({ event_type: 'workspace.opened', payload: { workspace: folders[0].name }, source: 'vscode' })
+    void flushDevEvents()
+  }
+  void syncGitMetadata()
+  gitPoll = setInterval(() => { void syncGitMetadata() }, 15000)
+  context.subscriptions.push({ dispose: () => { if (gitPoll) clearInterval(gitPoll) } })
+  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    lastGitBranch = ''
+    lastGitCommit = ''
+    void syncGitMetadata()
+  }))
+
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
   watcher.onDidChange(uri => queueFileEvent('file.changed', uri))
   watcher.onDidCreate(uri => queueFileEvent('file.created', uri))
@@ -80,6 +100,44 @@ function queueFileEvent(event_type: string, uri: vscode.Uri) {
   if (pendingEvents.length >= 100) void flushDevEvents()
   if (eventTimer) clearTimeout(eventTimer)
   eventTimer = setTimeout(() => { void flushDevEvents() }, 1200)
+}
+
+async function syncGitMetadata() {
+  const folder = vscode.workspace.workspaceFolders?.[0]
+  if (!folder || !api || !(await api.hasToken())) return
+  const root = folder.uri.fsPath
+  try {
+    const branchResult = await execFileAsync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 5000, maxBuffer: 1024 * 1024 })
+    const branch = branchResult.stdout.trim()
+    if (branch && branch !== lastGitBranch) {
+      lastGitBranch = branch
+      pendingEvents.push({ event_type: 'branch.changed', payload: { branch, repository_path: folder.name }, source: 'vscode' })
+    }
+    const logResult = await execFileAsync('git', [
+      '-C', root, 'log', '-1', '--format=%H%x1f%an%x1f%ae%x1f%cI%x1f%s'
+    ], { timeout: 5000, maxBuffer: 1024 * 1024 })
+    const [commitHash, author, authorEmail, committedAt, ...messageParts] = logResult.stdout.trim().split('\x1f')
+    const messageText = messageParts.join('\x1f')
+    if (/^[0-9a-f]{40}$/i.test(commitHash || '') && commitHash !== lastGitCommit) {
+      lastGitCommit = commitHash
+      pendingEvents.push({
+        event_type: 'commit.created',
+        payload: {
+          commit_hash: commitHash.toLowerCase(),
+          message: messageText,
+          author,
+          author_email: authorEmail,
+          committed_at: committedAt,
+          branch,
+          repository_path: folder.name,
+        },
+        source: 'vscode',
+      })
+    }
+    if (pendingEvents.length) await flushDevEvents()
+  } catch {
+    // A workspace without Git, or a temporarily unavailable Git executable, is not an extension error.
+  }
 }
 
 async function flushDevEvents() {
@@ -115,4 +173,4 @@ class TaskItem extends vscode.TreeItem {
     this.iconPath = new vscode.ThemeIcon(task.status === 'merged' || task.status === 'passed' ? 'check' : task.status === 'failed' ? 'error' : 'circle-outline')
   }
 }
-export function deactivate() { if (poll) clearInterval(poll) }
+export function deactivate() { if (poll) clearInterval(poll); if (gitPoll) clearInterval(gitPoll); if (eventTimer) clearTimeout(eventTimer); void flushDevEvents() }
