@@ -13,3 +13,10 @@ def get_db()->Generator[Session,None,None]:
 def init_db():
  from app import models  # noqa
  Base.metadata.create_all(bind=engine)
+ # Safe additive migration for existing SQLite installations.
+ from sqlalchemy import inspect, text
+ if 'project_members' in inspect(engine).get_table_names():
+  columns={column['name'] for column in inspect(engine).get_columns('project_members')}
+  if 'permissions' not in columns:
+   with engine.begin() as connection:
+    connection.execute(text("ALTER TABLE project_members ADD COLUMN permissions TEXT NOT NULL DEFAULT '{}'"))
