@@ -54,7 +54,7 @@ async def update_task(project_id:str,task_id:str,data:TaskUpdate,db:Session=Depe
   if new==TaskStatus.merged: require_permission(m,'merge')
   record_activity(db,project_id,user.id,'task.status_changed',{'task_id':t.id,'from':t.status.value,'to':new.value})
  for key,value in changes.items():
-  if value is not None or key=='due_date': setattr(t,key,value)
+  if value is not None or key in {'due_date','cycle_id','milestone_id','parent_task_id'}: setattr(t,key,value)
  db.commit();db.refresh(t);await manager.broadcast(project_id,{'type':'task.updated','data':{'id':t.id,'title':t.title,'status':t.status.value}});return t
 
 
