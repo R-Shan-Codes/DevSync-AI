@@ -244,3 +244,14 @@ class AIReviewArtifact(Base):
  summary:Mapped[str]=mapped_column(Text,nullable=False)
  findings:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class AIReviewTaskLink(Base):
+ __tablename__='ai_review_task_links'
+ __table_args__=(UniqueConstraint('artifact_id','task_id',name='uq_ai_review_task_link'),)
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ artifact_id:Mapped[str]=mapped_column(ForeignKey('ai_review_artifacts.id',ondelete='CASCADE'),index=True,nullable=False)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ linked_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
