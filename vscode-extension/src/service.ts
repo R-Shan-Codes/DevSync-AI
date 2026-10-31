@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 export type Task = {id:string;title:string;description:string;status:string;assignee_id:string|null}
 export class DevSyncApi {
   constructor(private context:vscode.ExtensionContext) {}
-  get hasToken() { return !!this.context.secrets.get('devsync.token') }
+  async hasToken(): Promise<boolean> { return Boolean(await this.context.secrets.get('devsync.token')) }
   get base() { return vscode.workspace.getConfiguration('devsync').get<string>('apiUrl','http://127.0.0.1:8000/api/v1').replace(/\/$/,'') }
   get dashboardUrl() { return this.base.replace(/\/api\/v1$/,'').replace('127.0.0.1','localhost') }
   private async token() { return await this.context.secrets.get('devsync.token') }
