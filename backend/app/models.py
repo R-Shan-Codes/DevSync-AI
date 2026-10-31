@@ -219,3 +219,16 @@ class BugAnalysis(Base):
  summary:Mapped[str]=mapped_column(Text,nullable=False)
  impacts:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class GitHubWebhookDelivery(Base):
+ __tablename__='github_webhook_deliveries'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ delivery_id:Mapped[str]=mapped_column(String(100),unique=True,index=True,nullable=False)
+ event_type:Mapped[str]=mapped_column(String(80),nullable=False)
+ action:Mapped[str]=mapped_column(String(80),default='',nullable=False)
+ repository_full_name:Mapped[str]=mapped_column(String(255),default='',nullable=False)
+ project_id:Mapped[str|None]=mapped_column(ForeignKey('projects.id',ondelete='SET NULL'),index=True,nullable=True)
+ payload_sha256:Mapped[str]=mapped_column(String(64),nullable=False)
+ outcome:Mapped[str]=mapped_column(String(30),default='processed',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
