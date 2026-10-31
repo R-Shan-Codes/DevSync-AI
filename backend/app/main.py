@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import activity,auth,projects,tasks,git,reviews,test_runs,websocket,ai,memory,github
+from app.api import activity,auth,projects,tasks,git,reviews,test_runs,websocket,ai,memory,github,conflicts
 from app.core.config import settings
 from app.core.database import init_db
 app=FastAPI(title=settings.app_name,description='Collaborative development workflow API for DevSync.',version='0.2.0')
@@ -19,4 +19,5 @@ app.include_router(test_runs.router,prefix=settings.api_v1_prefix)
 app.include_router(ai.router,prefix=settings.api_v1_prefix)
 app.include_router(memory.router,prefix=settings.api_v1_prefix)
 app.include_router(github.router,prefix=settings.api_v1_prefix)
+app.include_router(conflicts.router,prefix=settings.api_v1_prefix)
 app.include_router(websocket.router)
