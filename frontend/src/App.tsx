@@ -4,7 +4,8 @@ import { Activity as ActivityIcon, Bot, Boxes, CheckCircle2, CircleDot, Code2, G
 import { API,Activity,Member,Project,Task,authHeaders,request } from './api'
 import RoleWorkspace from './RoleWorkspace'
 import GitMonitor from './GitMonitor'
-import DemoMode from './DemoMode'\nimport IntelligenceCenter from './IntelligenceCenter'
+import DemoMode from './DemoMode'
+import IntelligenceCenter from './IntelligenceCenter'
 
 const roles=[['team_leader_project_manager','Team Leader / Project Manager'],['ui_ux_designer','UI/UX Designer'],['frontend_developer','Frontend Developer'],['backend_developer','Backend Developer'],['tester_qa_engineer','Tester / QA Engineer'],['devops_engineer','DevOps Engineer'],['security_engineer','Security Engineer'],['documentation_specialist','Documentation Specialist']] as const
 const permissionLabels=[['view','View'],['edit','Edit'],['create_branch','Create branch'],['commit','Commit'],['push','Push'],['pull','Pull'],['review','Review'],['approve','Approve'],['merge','Merge'],['deploy','Deploy'],['manage_team','Manage team']] as const
