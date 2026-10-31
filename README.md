@@ -34,10 +34,10 @@ The application records review and test evidence and surfaces pipeline readiness
 
 ## Product scope and next work
 
-DevSync already has a functioning engineering workflow foundation, but it is **not yet a complete Jira/Linear/Asana replacement**. Advanced planning and work-management capabilities—such as cycles/sprints, milestones/roadmaps, threaded comments and mentions, attachments, labels/custom fields, saved views, rich search, configurable automation and notification preferences—remain product gaps. Task priority, due dates and basic task discussion are now included in the active implementation branch.
+DevSync already has a functioning engineering workflow foundation, but it is **not yet a complete Jira/Linear/Asana replacement**. DevSync now includes project cycles/sprints, milestone roadmap cards, task parent-child relationships, priority, due dates and basic task discussion in its active implementation branch. Remaining gaps include timeline/Gantt planning, estimates, labels/custom fields, threaded comments and mentions, saved views, rich search, attachments, configurable automation and persistent notification preferences.
 
 See [the implementation-backed capability audit](docs/product-capability-audit.md) for what exists, what is partial and what should be built next. The [development roadmap](docs/development-roadmap.md) is ordered by product impact and delivery dependency.
 
 ## Verification status
 
-The current open implementation PR reports passing GitHub Actions for backend (68 tests), frontend (TypeScript check and production build) and VS Code extension (TypeScript compilation). These are CI results for the PR branch, not a claim that deployment-dependent GitHub OAuth, inbound webhook delivery or live Gemini calls have been verified. The implementation PR remains subject to review and merge.
+The latest verified implementation baseline reported passing GitHub Actions for backend (71 tests), frontend (TypeScript check and production build) and VS Code extension (TypeScript compilation). The current planning milestone is under CI verification. These are CI results for feature branches, not a claim that deployment-dependent GitHub OAuth, inbound webhook delivery or live Gemini calls have been verified. Changes remain subject to review and merge.
