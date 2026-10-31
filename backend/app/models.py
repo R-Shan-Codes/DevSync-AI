@@ -7,7 +7,7 @@ def new_id(): return str(uuid.uuid4())
 class TimestampMixin:
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
  updated_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),onupdate=lambda:datetime.now(timezone.utc),nullable=False)
-class ProjectRole(str,enum.Enum): coder='coder';debugger='debugger';tester='tester';administrator='administrator'
+class ProjectRole(str,enum.Enum): team_leader_project_manager='team_leader_project_manager';ui_ux_designer='ui_ux_designer';frontend_developer='frontend_developer';backend_developer='backend_developer';tester_qa_engineer='tester_qa_engineer';devops_engineer='devops_engineer';security_engineer='security_engineer';documentation_specialist='documentation_specialist';coder='coder';debugger='debugger';tester='tester';administrator='administrator'
 class TaskStatus(str,enum.Enum): backlog='backlog';in_progress='in_progress';submitted='submitted';in_review='in_review';approved='approved';ready_for_testing='ready_for_testing';testing='testing';failed='failed';passed='passed';ready_for_merge='ready_for_merge';merged='merged';cancelled='cancelled'
 class User(TimestampMixin,Base):
  __tablename__='users'
@@ -31,7 +31,8 @@ class ProjectMember(TimestampMixin,Base):
  id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
  project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
  user_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
- role:Mapped[ProjectRole]=mapped_column(Enum(ProjectRole),default=ProjectRole.coder,nullable=False)
+ role:Mapped[ProjectRole]=mapped_column(Enum(ProjectRole),default=ProjectRole.frontend_developer,nullable=False)
+ permissions:Mapped[str]=mapped_column(Text,default='{}',nullable=False)
  project:Mapped[Project]=relationship(back_populates='members')
  user:Mapped[User]=relationship(back_populates='memberships')
 class Task(TimestampMixin,Base):
