@@ -108,7 +108,7 @@ async def github_request(client: httpx.AsyncClient, method: str, url: str, token
     if response.status_code == 401:
         raise HTTPException(status_code=401, detail="GitHub authorization expired. Reconnect your GitHub account.")
     if response.status_code == 403:
-        raise HTTPException(status_code=403, detail="GitHub denied access to this repository or its Actions logs.")
+        raise HTTPException(status_code=403, detail="GitHub denied access to this repository or requested resource.")
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="GitHub resource was not found or is not accessible to this account.")
     if not response.is_success:
@@ -185,7 +185,7 @@ async def github_download_bounded(
                 chunks.append(chunk)
             return b"".join(chunks)
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Could not download GitHub Actions logs.") from exc
+        raise HTTPException(status_code=502, detail="Could not download the GitHub resource.") from exc
 
 
 def project_repository(project: Project) -> tuple[str, str]:
