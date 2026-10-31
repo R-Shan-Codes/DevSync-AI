@@ -8,7 +8,8 @@ import httpx
 from app.core.database import get_db
 from app.main import app
 from app.models import AIReviewArtifact, Project, User
-from app.api.github_ai import extract_job_logs, github_download_bounded, normalize_findings, parse_ai_json, redact_secrets
+from app.api import github_ai
+from app.api.github_ai import extract_job_logs, gemini_analysis, github_download_bounded, normalize_findings, parse_ai_json, redact_secrets
 
 
 def register(client, email):
@@ -261,3 +262,42 @@ def test_github_job_log_extraction_caps_decompressed_text():
         zipped.writestr("logs/large.txt", "x" * 100_000)
     result = extract_job_logs(archive.getvalue())
     assert len(result) == 45_000
+
+
+def test_gemini_analysis_sends_api_key_in_header_not_url(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{
+                "text": '{"summary":"Analysis completed","findings":[]}'
+            }]}}]}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, headers, json):
+            captured["url"] = url
+            captured["headers"] = headers
+            captured["body"] = json
+            return Response()
+
+    monkeypatch.setattr(github_ai.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(github_ai.settings, "gemini_api_key", "test-gemini-secret")
+    monkeypatch.setattr(github_ai.settings, "gemini_model", "gemini-test-model")
+
+    result = asyncio.run(gemini_analysis("Review", "safe evidence"))
+    assert result["summary"] == "Analysis completed"
+    assert captured["headers"]["x-goog-api-key"] == "test-gemini-secret"
+    assert "test-gemini-secret" not in captured["url"]
+    assert "key=" not in captured["url"]
