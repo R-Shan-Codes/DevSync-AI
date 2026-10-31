@@ -25,6 +25,8 @@ GITHUB_HEADERS = {
 }
 MAX_DIFF_CHARS = 60_000
 MAX_LOG_CHARS = 45_000
+MAX_LOG_ARCHIVE_BYTES = 10_000_000
+MAX_LOG_ARCHIVE_FILES = 20
 
 SECRET_PATTERNS = [
     re.compile(r"(?i)\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"),
@@ -252,15 +254,28 @@ async def review_pull_request(
 
 
 def extract_job_logs(archive: bytes) -> str:
+    """Read a small, bounded subset of GitHub ZIP logs without extracting files."""
+    if len(archive) > MAX_LOG_ARCHIVE_BYTES:
+        return "[Job log archive omitted: compressed archive exceeded the 10 MB safety limit.]"
     try:
+        chunks = []
+        remaining = MAX_LOG_CHARS
         with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
-            chunks = []
-            for name in zipped.namelist():
-                if name.lower().endswith((".txt", ".log")):
-                    chunks.append(zipped.read(name).decode("utf-8", errors="replace"))
-            return "\n".join(chunks)
-    except (zipfile.BadZipFile, OSError, RuntimeError):
-        return archive.decode("utf-8", errors="replace")
+            for info in zipped.infolist()[:MAX_LOG_ARCHIVE_FILES]:
+                if remaining <= 0:
+                    break
+                if info.is_dir() or not info.filename.lower().endswith((".txt", ".log")):
+                    continue
+                if info.file_size <= 0:
+                    continue
+                with zipped.open(info, "r") as stream:
+                    raw = stream.read(remaining + 1)
+                text = raw[:remaining].decode("utf-8", errors="replace")
+                chunks.append(text)
+                remaining -= len(text)
+        return "\\n".join(chunks) or "[No readable text or log files were present in the job archive.]"
+    except (zipfile.BadZipFile, OSError, RuntimeError, ValueError):
+        return "[Job log archive could not be decoded safely.]"
 
 
 @router.post("/checks/{commit_sha}/analyze", status_code=201)
