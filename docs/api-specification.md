@@ -55,3 +55,10 @@ All project endpoints require membership. Use Authorization: Bearer <access_toke
 
 ### POST /github/projects/{project_id}/integration-check
 Requires project review permission. Runs a live, non-persistent diagnostic of GitHub OAuth configuration, the connected GitHub account, access to the project's linked repository, Gemini API connectivity and webhook-secret configuration. Returns an overall status and per-integration status/detail records. It never returns credentials. A configured webhook secret is reported as a warning because public inbound delivery must be verified from GitHub's webhook delivery history.
+
+
+## Task metadata and discussion
+- Task create/update accepts `priority` (`low`, `medium`, `high`, `urgent`) and optional ISO `due_date` (`YYYY-MM-DD`). Task metadata edits require project edit permission.
+- GET /projects/{project_id}/tasks/{task_id}/comments — lists task discussion in chronological order for project members.
+- POST /projects/{project_id}/tasks/{task_id}/comments — creates a task comment (body up to 5,000 characters); requires project edit permission.
+- Comments are scoped to both project and task, recorded in project activity and broadcast over the project WebSocket.
