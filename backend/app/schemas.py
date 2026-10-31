@@ -45,3 +45,8 @@ class AIAssistRequest(BaseModel):
  project_id:str
  role:str=Field(pattern='^(team_leader_project_manager|ui_ux_designer|frontend_developer|backend_developer|tester_qa_engineer|devops_engineer|security_engineer|documentation_specialist|coder|debugger|tester)$')
  prompt:str=Field(min_length=2,max_length=12000)
+
+class ConflictAnalyzeRequest(BaseModel):
+ repository_path:str=Field(min_length=1,max_length=500)
+ target_ref:str=Field(min_length=1,max_length=255)
+ source_ref:str=Field(min_length=1,max_length=255)
