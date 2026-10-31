@@ -42,6 +42,11 @@ All routes except the existing WebSocket route use the standard bearer token.
 | POST | `/projects/{project_id}/ai/recommendations` | Record a proposed AI recommendation |
 | GET | `/projects/{project_id}/ai/recommendations` | List recommendations |
 | POST | `/projects/{project_id}/ai/recommendations/{recommendation_id}/override` | Accept, reject or modify a recommendation with an audit record |
+| POST | `/projects/{project_id}/bugs` | Create a bug report against a task |
+| GET | `/projects/{project_id}/bugs` | List bug reports; optional status filter |
+| PATCH | `/projects/{project_id}/bugs/{bug_id}` | Update bug status and resolution |
+| POST | `/projects/{project_id}/bugs/{bug_id}/analyze-impact` | Analyze downstream task dependencies and linked evidence |
+| GET | `/projects/{project_id}/bugs/{bug_id}/analyses` | Read bug impact analysis history |
 | POST | `/projects/{project_id}/handover` | Create a developer handover |
 | GET | `/projects/{project_id}/handover` | Read project handover history |
 
@@ -53,7 +58,7 @@ The event API requires project Edit permission and rejects absolute paths, trave
 
 ## Important behavior and limitations
 
-- Task dependencies are validated to prevent self-dependencies and cycles.
+- Task dependencies are validated to prevent self-dependencies and cycles.\n- Bug reporting is now backed by persistent records, matching the existing VS Code extension's bug-report command.\n- Bug impact analysis follows downstream task dependencies and includes explicitly linked commits and shared-file evidence. It records candidates only; it does not assign blame, modify task statuses or perform a rollback.
 - Commit/task links are explicit and confidence-scored. The system does not infer task ownership from commit messages yet.
 - AI conversations persist user messages before contacting Gemini. If Gemini is unavailable, the saved user message remains available for retry or review.
 - Conversation access is restricted to the owning user and project; the conversation role must match the user's current project role.
