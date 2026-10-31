@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 export type Task = {id:string;title:string;description:string;status:string;assignee_id:string|null}
-export type Membership = {role:string;permissions:Record<string,boolean>}
+export type Membership = {role:string;permissions:Record<string,boolean>}\nexport type DevEvent = {event_type:string;payload:Record<string,unknown>;source:'vscode'}
 export class DevSyncApi {
   constructor(private context:vscode.ExtensionContext) {}
   async hasToken(): Promise<boolean> { return Boolean(await this.context.secrets.get('devsync.token')) }
@@ -26,7 +26,7 @@ export class DevSyncApi {
   async membership():Promise<Membership> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');return this.request(`/projects/${project}/members/me`) }
   async githubAccount():Promise<{connected:boolean;login?:string}> { return this.request('/github/account') }
   async syncGitHub():Promise<{repository:string;new_commits:number}> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission');return this.request(`/github/projects/${project}/sync`,{method:'POST'}) }
-  async tasks():Promise<Task[]> { const project=this.projectId();if(!project)return [];const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission for this project');return this.request(`/projects/${project}/tasks`) }
+  async ingestEvents(events:DevEvent[]):Promise<{accepted:number}> {\n    const project=this.projectId()\n    if(!project) throw new Error('Set devsync.projectId in workspace settings first')\n    const member=await this.membership()\n    if(!member.permissions.edit) throw new Error('Your DevSync role does not have Edit permission to sync development events')\n    return this.request(`/projects/${project}/intelligence/events`,{method:'POST',body:JSON.stringify({events})})\n  }\n  async tasks():Promise<Task[]> { const project=this.projectId();if(!project)return [];const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission for this project');return this.request(`/projects/${project}/tasks`) }
   async syncGit():Promise<any[]> {
     const project=this.projectId()
     if(!project) throw new Error('Set devsync.projectId in workspace settings first')
