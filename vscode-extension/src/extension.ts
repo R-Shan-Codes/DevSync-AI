@@ -34,6 +34,8 @@ export function activate(context: vscode.ExtensionContext) {
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(api!.dashboardUrl))))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGit', syncGit))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.githubStatus', githubStatus))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGitHub', syncGitHub))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.tasks.open', (task: Task) => vscode.window.showInformationMessage(`${task.title}\nStatus: ${task.status}`)))
   const watcher = vscode.workspace.createFileSystemWatcher('**/*')
   watcher.onDidChange(() => refresh()); watcher.onDidCreate(() => refresh()); watcher.onDidDelete(() => refresh())
@@ -43,7 +45,9 @@ export function activate(context: vscode.ExtensionContext) {
   refresh()
 }
 async function refresh() { try { if (!api || !(await api.hasToken())) return; tree.setTasks(await api.tasks()); } catch (e) { vscode.window.setStatusBarMessage('DevSync: unable to refresh tasks', 5000) } }
-async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} new commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function syncGit() { try { const result = await api!.syncGit(); vscode.window.showInformationMessage(`DevSync synced ${result.length} local commits`) } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function githubStatus() { try { const account = await api!.githubAccount(); vscode.window.showInformationMessage(account.connected ? `GitHub connected as @${account.login}` : 'GitHub is not connected. Connect it from the DevSync dashboard.') } catch (e) { vscode.window.showErrorMessage(message(e)) } }
+async function syncGitHub() { try { const result = await api!.syncGitHub(); vscode.window.showInformationMessage(`Synced ${result.new_commits} commits from ${result.repository}`); await refresh() } catch (e) { vscode.window.showErrorMessage(message(e)) } }
 function message(e: unknown) { return e instanceof Error ? e.message : String(e) }
 class TaskProvider implements vscode.TreeDataProvider<TaskItem> {
   private emitter = new vscode.EventEmitter<TaskItem | undefined>()

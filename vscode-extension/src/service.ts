@@ -24,6 +24,8 @@ export class DevSyncApi {
   }
   private projectId() { return vscode.workspace.getConfiguration('devsync').get<string>('projectId','').trim() }
   async membership():Promise<Membership> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');return this.request(`/projects/${project}/members/me`) }
+  async githubAccount():Promise<{connected:boolean;login?:string}> { return this.request('/github/account') }
+  async syncGitHub():Promise<{repository:string;new_commits:number}> { const project=this.projectId();if(!project)throw new Error('Set devsync.projectId in workspace settings first');const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission');return this.request(`/github/projects/${project}/sync`,{method:'POST'}) }
   async tasks():Promise<Task[]> { const project=this.projectId();if(!project)return [];const member=await this.membership();if(!member.permissions.view)throw new Error('Your DevSync role does not have View permission for this project');return this.request(`/projects/${project}/tasks`) }
   async syncGit():Promise<any[]> {
     const project=this.projectId()

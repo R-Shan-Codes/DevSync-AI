@@ -23,6 +23,9 @@ class Project(TimestampMixin,Base):
  name:Mapped[str]=mapped_column(String(120),nullable=False)
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
  owner_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ github_repo_full_name:Mapped[str|None]=mapped_column(String(255),nullable=True)
+ github_repo_url:Mapped[str|None]=mapped_column(String(500),nullable=True)
+ github_default_branch:Mapped[str|None]=mapped_column(String(255),nullable=True)
  members:Mapped[list['ProjectMember']]=relationship(back_populates='project',cascade='all, delete-orphan')
  tasks:Mapped[list['Task']]=relationship(back_populates='project',cascade='all, delete-orphan')
 class ProjectMember(TimestampMixin,Base):
@@ -89,3 +92,13 @@ class TestRun(Base):
  passed:Mapped[int]=mapped_column(Integer,default=0,nullable=False)
  failed:Mapped[int]=mapped_column(Integer,default=0,nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+class GitHubAccount(TimestampMixin,Base):
+ __tablename__='github_accounts'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ user_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),unique=True,index=True,nullable=False)
+ github_user_id:Mapped[str]=mapped_column(String(40),nullable=False)
+ login:Mapped[str]=mapped_column(String(100),nullable=False)
+ avatar_url:Mapped[str]=mapped_column(String(500),default='',nullable=False)
+ access_token_encrypted:Mapped[str]=mapped_column(Text,nullable=False)
+ scopes:Mapped[str]=mapped_column(Text,default='',nullable=False)
