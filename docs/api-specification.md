@@ -23,3 +23,53 @@ Base path: /api/v1
 - GET /projects/{project_id}/activity?limit=50 — newest project activity (limit 1–200).
 
 All project endpoints require membership. Use Authorization: Bearer <access_token>. Interactive OpenAPI documentation is available at /docs when the API is running.
+
+
+## GitHub webhook receiver
+- POST /github/webhooks — public GitHub webhook endpoint. Requires a configured `GITHUB_WEBHOOK_SECRET` and valid `X-Hub-Signature-256`, `X-GitHub-Delivery`, and `X-GitHub-Event` headers. Handles push, pull_request, check_run, and check_suite events for repositories linked to a project. Delivery IDs are persisted to prevent duplicate processing.
+
+
+## AI GitHub review and CI diagnosis
+- POST /github/projects/{project_id}/pull-requests/{pull_number}/review — creates a persisted Gemini-assisted review.
+- POST /github/projects/{project_id}/checks/{commit_sha}/analyze — analyzes failed GitHub Actions evidence.
+- GET /github/projects/{project_id}/ai-analyses — lists project-scoped analysis history.
+- POST /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — explicitly links an analysis to a task; requires project edit permission.
+- GET /github/projects/{project_id}/ai-analyses/{artifact_id}/tasks — lists task links for an analysis.
+- GET /projects/{project_id}/pipeline — includes the latest task-linked AI analysis as advisory evidence. AI findings do not automatically create bugs, block tasks, change statuses, approve or merge.
+
+
+## VS Code development-event synchronization
+- POST /projects/{project_id}/intelligence/events — authenticated, edit-permission event ingestion (1–100 events per batch). Supported event types include file.created/changed/deleted, workspace.opened, branch.changed and commit.created.
+- GET /projects/{project_id}/intelligence/events — recent project development events.
+- GET /projects/{project_id}/intelligence/files — recent file-change metadata.
+- A valid 40-character Git commit hash in a commit.created event is also persisted as a project Git event (idempotent per project/commit), making it available to the existing commit-task suggestion and explicit commit-link endpoints.
+- The dashboard WebSocket at /ws/projects/{project_id} broadcasts event notifications; connected dashboard views refresh activity, development intelligence and pipeline data.
+
+
+## GitHub integration hardening
+- GitHub OAuth requests `repo read:user`; the access token is encrypted at rest with `GITHUB_TOKEN_ENCRYPTION_KEY` (Fernet).
+- POST /github/webhooks — HMAC-SHA256 authenticated; request body capped at 2 MB; exact repository matching; duplicate delivery and commit protection.
+- AI PR diff downloads are capped at 2 MB before text truncation/redaction. GitHub Actions log downloads are streamed with a 10 MB cap; ZIP extraction is limited to 20 log files and 45,000 characters.
+- Gemini API key is sent using the `x-goog-api-key` header. Common GitHub, Google, AWS, bearer, JWT, Slack and npm credential formats are redacted before analysis.
+- Live OAuth, webhook delivery and Gemini API verification are deployment-dependent; see `docs/live-github-ai-integration.md`.
+
+### POST /github/projects/{project_id}/integration-check
+Requires project review permission. Runs a live, non-persistent diagnostic of GitHub OAuth configuration, the connected GitHub account, access to the project's linked repository, Gemini API connectivity and webhook-secret configuration. Returns an overall status and per-integration status/detail records. It never returns credentials. A configured webhook secret is reported as a warning because public inbound delivery must be verified from GitHub's webhook delivery history.
+
+
+## Task metadata and discussion
+- Task create/update accepts `priority` (`low`, `medium`, `high`, `urgent`) and optional ISO `due_date` (`YYYY-MM-DD`). Task metadata edits require project edit permission.
+- GET /projects/{project_id}/tasks/{task_id}/comments — lists task discussion in chronological order for project members.
+- POST /projects/{project_id}/tasks/{task_id}/comments — creates a task comment (body up to 5,000 characters); requires project edit permission.
+- Comments are scoped to both project and task, recorded in project activity and broadcast over the project WebSocket.
+
+
+## Project planning: cycles, milestones and task hierarchy
+- GET /projects/{project_id}/cycles — list project delivery cycles.
+- POST /projects/{project_id}/cycles — create a cycle with name, goal, start_date and end_date; end date cannot precede start date.
+- PATCH /projects/{project_id}/cycles/{cycle_id} — update cycle details or status (`planned`, `active`, `completed`).
+- GET /projects/{project_id}/milestones — list project milestones ordered by target date.
+- POST /projects/{project_id}/milestones — create a milestone with optional due_date.
+- PATCH /projects/{project_id}/milestones/{milestone_id} — update milestone details or status (`planned`, `in_progress`, `completed`).
+- Task create/update accepts `cycle_id`, `milestone_id` and `parent_task_id`. Every referenced record must belong to the same project. Parent-child cycles are rejected.
+- Planning writes require project edit permission. Reads require project membership. Mutations create project activity and broadcast WebSocket events.

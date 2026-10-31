@@ -1,6 +1,6 @@
 import enum,uuid
-from datetime import datetime,timezone
-from sqlalchemy import Boolean,DateTime,Enum,ForeignKey,String,Text,Integer,UniqueConstraint
+from datetime import date,datetime,timezone
+from sqlalchemy import Boolean,Date,DateTime,Enum,ForeignKey,String,Text,Integer,UniqueConstraint
 from sqlalchemy.orm import Mapped,mapped_column,relationship
 from app.core.database import Base
 def new_id(): return str(uuid.uuid4())
@@ -44,6 +44,11 @@ class Task(TimestampMixin,Base):
  project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
  title:Mapped[str]=mapped_column(String(180),nullable=False)
  description:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ priority:Mapped[str]=mapped_column(String(10),default='medium',nullable=False)
+ due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+ cycle_id:Mapped[str|None]=mapped_column(ForeignKey('cycles.id',ondelete='SET NULL'),nullable=True,index=True)
+ milestone_id:Mapped[str|None]=mapped_column(ForeignKey('milestones.id',ondelete='SET NULL'),nullable=True,index=True)
+ parent_task_id:Mapped[str|None]=mapped_column(ForeignKey('tasks.id',ondelete='SET NULL'),nullable=True,index=True)
  status:Mapped[TaskStatus]=mapped_column(Enum(TaskStatus),default=TaskStatus.backlog,nullable=False)
  assignee_id:Mapped[str|None]=mapped_column(ForeignKey('users.id',ondelete='SET NULL'))
  created_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
@@ -219,3 +224,69 @@ class BugAnalysis(Base):
  summary:Mapped[str]=mapped_column(Text,nullable=False)
  impacts:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class GitHubWebhookDelivery(Base):
+ __tablename__='github_webhook_deliveries'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ delivery_id:Mapped[str]=mapped_column(String(100),unique=True,index=True,nullable=False)
+ event_type:Mapped[str]=mapped_column(String(80),nullable=False)
+ action:Mapped[str]=mapped_column(String(80),default='',nullable=False)
+ repository_full_name:Mapped[str]=mapped_column(String(255),default='',nullable=False)
+ project_id:Mapped[str|None]=mapped_column(ForeignKey('projects.id',ondelete='SET NULL'),index=True,nullable=True)
+ payload_sha256:Mapped[str]=mapped_column(String(64),nullable=False)
+ outcome:Mapped[str]=mapped_column(String(30),default='processed',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class AIReviewArtifact(Base):
+ __tablename__='ai_review_artifacts'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ requester_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ artifact_type:Mapped[str]=mapped_column(String(40),index=True,nullable=False)
+ source_key:Mapped[str]=mapped_column(String(255),index=True,nullable=False)
+ summary:Mapped[str]=mapped_column(Text,nullable=False)
+ findings:Mapped[str]=mapped_column(Text,default='[]',nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class AIReviewTaskLink(Base):
+ __tablename__='ai_review_task_links'
+ __table_args__=(UniqueConstraint('artifact_id','task_id',name='uq_ai_review_task_link'),)
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ artifact_id:Mapped[str]=mapped_column(ForeignKey('ai_review_artifacts.id',ondelete='CASCADE'),index=True,nullable=False)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ linked_by_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)
+
+
+class TaskComment(Base):
+ __tablename__='task_comments'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ task_id:Mapped[str]=mapped_column(ForeignKey('tasks.id',ondelete='CASCADE'),index=True,nullable=False)
+ author_id:Mapped[str]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+ body:Mapped[str]=mapped_column(Text,nullable=False)
+ created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),index=True,nullable=False)
+
+
+class Cycle(TimestampMixin,Base):
+ __tablename__='cycles'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ name:Mapped[str]=mapped_column(String(120),nullable=False)
+ goal:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ start_date:Mapped[date]=mapped_column(Date,nullable=False)
+ end_date:Mapped[date]=mapped_column(Date,nullable=False)
+ status:Mapped[str]=mapped_column(String(20),default='planned',index=True,nullable=False)
+
+class Milestone(TimestampMixin,Base):
+ __tablename__='milestones'
+ id:Mapped[str]=mapped_column(String(36),primary_key=True,default=new_id)
+ project_id:Mapped[str]=mapped_column(ForeignKey('projects.id',ondelete='CASCADE'),index=True,nullable=False)
+ name:Mapped[str]=mapped_column(String(120),nullable=False)
+ description:Mapped[str]=mapped_column(Text,default='',nullable=False)
+ due_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+ status:Mapped[str]=mapped_column(String(20),default='planned',index=True,nullable=False)

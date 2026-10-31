@@ -11,9 +11,12 @@ def test_insights_and_project_memory(client):
     insights = client.get(f"/api/v1/ai/insights/{pid}", headers=headers)
     assert insights.status_code == 200
     assert insights.json()["total_tasks"] == 1
+    assert "contribution_methodology" in insights.json()
     memory = client.get(f"/api/v1/projects/{pid}/memory", headers=headers)
     assert memory.status_code == 200
     assert memory.json()["tasks"][0]["title"] == "Implement dashboard"
+    assert memory.json()["open_bugs"] == []
+    assert memory.json()["recent_handovers"] == []
 
 def test_ai_assistant_requires_configuration(client):
     headers = register(client, "assistant@example.com")

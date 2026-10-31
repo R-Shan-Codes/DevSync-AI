@@ -26,3 +26,11 @@ def init_db():
   if 'permissions' not in columns:
    with engine.begin() as connection:
     connection.execute(text("ALTER TABLE project_members ADD COLUMN permissions TEXT NOT NULL DEFAULT '{}'"))
+ if 'tasks' in inspect(engine).get_table_names():
+  columns={column['name'] for column in inspect(engine).get_columns('tasks')}
+  with engine.begin() as connection:
+   if 'priority' not in columns: connection.execute(text("ALTER TABLE tasks ADD COLUMN priority VARCHAR(10) NOT NULL DEFAULT 'medium'"))
+   if 'due_date' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN due_date DATE'))
+   if 'cycle_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN cycle_id VARCHAR(36) REFERENCES cycles(id) ON DELETE SET NULL'))
+   if 'milestone_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN milestone_id VARCHAR(36) REFERENCES milestones(id) ON DELETE SET NULL'))
+   if 'parent_task_id' not in columns: connection.execute(text('ALTER TABLE tasks ADD COLUMN parent_task_id VARCHAR(36) REFERENCES tasks(id) ON DELETE SET NULL'))

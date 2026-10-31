@@ -143,3 +143,51 @@ def test_bug_reporting_and_dependency_impact_analysis(client):
     })
     assert updated.status_code == 200
     assert client.get(f"/api/v1/projects/{pid}/bugs?status=in_progress", headers=headers).json()[0]["id"] == bug_id
+
+
+def test_vscode_commit_event_enters_commit_matching_and_explicit_link_flow(client):
+    headers, project, _, _ = create_project_and_tasks(client, "vscode-commit-flow@example.com")
+    pid = project["id"]
+    task = client.post(
+        f"/api/v1/projects/{pid}/tasks", headers=headers,
+        json={"title": "Fix authentication token refresh"},
+    ).json()
+    commit_hash = "a" * 40
+    ingested = client.post(
+        f"/api/v1/projects/{pid}/intelligence/events",
+        headers=headers,
+        json={"events": [{
+            "event_type": "commit.created",
+            "source": "vscode",
+            "payload": {
+                "commit_hash": commit_hash,
+                "message": "Fix authentication token refresh race",
+                "author": "Developer",
+                "author_email": "developer@example.com",
+                "committed_at": "2026-10-31T10:00:00Z",
+                "branch": "feature/auth-refresh",
+                "repository_path": "DevSync-AI",
+            },
+        }]},
+    )
+    assert ingested.status_code == 202, ingested.text
+
+    suggestions = client.get(
+        f"/api/v1/projects/{pid}/intelligence/commit-task-suggestions",
+        headers=headers,
+    )
+    assert suggestions.status_code == 200, suggestions.text
+    candidate = next(
+        item for item in suggestions.json()["suggestions"]
+        if item["commit_hash"] == commit_hash
+    )
+    assert candidate["candidates"][0]["task_id"] == task["id"]
+
+    linked = client.post(
+        f"/api/v1/projects/{pid}/intelligence/commit-links",
+        headers=headers,
+        json={"commit_hash": commit_hash, "task_id": task["id"],
+              "confidence": candidate["candidates"][0]["confidence"]},
+    )
+    assert linked.status_code == 201, linked.text
+    assert linked.json()["task_id"] == task["id"]

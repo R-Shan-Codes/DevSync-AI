@@ -6,7 +6,7 @@ type Props = { token: string; projectId: string; canEdit: boolean }
 type Recommendation = { id:string; task_id:string|null; recommendation_type:string; proposed_value:string; rationale:string; evidence:string[]; status:string; created_at:string }
 type CommitSuggestion = { commit_hash:string; message:string; author:string; committed_at:string; candidates:{task_id:string;task_title:string;status:string;confidence:number;matched_terms:string[]}[] }
 
-export default function IntelligenceCenter({token,projectId,canEdit}:Props) {
+export default function IntelligenceCenter({token,projectId,canEdit,revision}:Props & {revision:number}) {
   const [summary,setSummary]=useState<any>(null),[events,setEvents]=useState<any[]>([]),[files,setFiles]=useState<any[]>([])
   const [recommendations,setRecommendations]=useState<Recommendation[]>([]),[commits,setCommits]=useState<CommitSuggestion[]>([])
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('')
@@ -24,7 +24,7 @@ export default function IntelligenceCenter({token,projectId,canEdit}:Props) {
       setSummary(s);setEvents(e);setFiles(f);setRecommendations(r);setCommits(c.suggestions)
     } catch(e) { setError(e instanceof Error?e.message:'Unable to load intelligence data') }
     finally { setBusy(false) }
-  },[token,projectId])
+  },[token,projectId,revision])
   useEffect(()=>{void load()},[load])
   async function generate(){
     setBusy(true);setError('');setNotice('')

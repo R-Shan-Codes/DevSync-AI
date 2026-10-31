@@ -13,3 +13,99 @@
 
 /* AI development intelligence */
 .intelligence-center{display:grid;gap:16px}.intelligence-center .welcome-row{margin:0}.intelligence-center .panel-heading h3{display:flex;align-items:center;gap:8px}.intelligence-center .stats-grid{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.intelligence-item{padding:14px 0;border-top:1px solid #202b40;display:grid;gap:8px}.intelligence-item-main{display:flex;justify-content:space-between;align-items:center;gap:12px}.intelligence-item-main>div,.intelligence-item>div:first-child{display:grid;gap:5px}.intelligence-item b{font-size:12px}.intelligence-item small{font-size:10px;color:#8190aa;overflow-wrap:anywhere}.intelligence-item p{font-size:12px;line-height:1.6;color:#b6c3d9;margin:0}.status-chip{font-size:9px;text-transform:uppercase;border-radius:20px;padding:5px 8px;background:#26334b;color:#aebbd1}.status-chip.accepted{background:#173b32;color:#8ce0bb}.status-chip.rejected{background:#48252d;color:#ffb7c1}.intelligence-actions{display:flex;gap:14px;align-items:center}.intelligence-actions button{display:inline-flex;align-items:center;gap:5px}.commit-candidate{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;margin-top:8px;background:#0d1729;border:1px solid #263550;border-radius:8px}.commit-candidate>div{display:grid;gap:5px;min-width:0}.commit-candidate .primary{white-space:nowrap;padding:8px 10px;font-size:10px}.intelligence-notice{padding:10px;border:1px solid #285746;background:#17362f;color:#9ce3c5;border-radius:8px;font-size:12px}@media(max-width:650px){.commit-candidate{align-items:flex-start;flex-direction:column}.intelligence-item-main{align-items:flex-start;flex-direction:column}}
+
+
+/* Development pipeline and conflict intelligence */
+.pipeline-task{border:1px solid var(--border,#2b3445);border-radius:12px;padding:16px;margin:12px 0;display:grid;gap:9px}
+.pipeline-task .panel-heading{margin:0}
+.pipeline-task small{display:flex;align-items:center;gap:6px;color:var(--muted,#9aa4b2);overflow-wrap:anywhere}
+.pipeline-gates{display:flex;flex-wrap:wrap;gap:7px}
+.pipeline-gates .role{font-size:11px}
+.pipeline-center .stats-grid{margin-top:14px}
+
+.pipeline-assignment{display:grid;gap:6px;padding:10px 12px;border-radius:9px;background:var(--surface-2,rgba(127,127,127,.08))}
+.pipeline-assignment>b{font-size:12px}
+.pipeline-assignment small{display:block}
+
+
+/* Unified collaborative task workflow */
+.workflow-center{display:grid;gap:16px}
+.workflow-task-picker,.workflow-field{display:grid;gap:7px;color:#9aa9c3;font-size:11px}
+.workflow-task-picker{max-width:620px}
+.workflow-task-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:15px;padding:13px;background:#0d1729;border:1px solid #263550;border-radius:9px}
+.workflow-task-summary>div{display:grid;gap:5px}
+.workflow-task-summary b{font-size:13px}
+.workflow-task-summary small{font-size:10px;color:#8190aa}
+.workflow-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.workflow-action-grid .panel{margin:0;display:flex;flex-direction:column;align-items:stretch;gap:12px}
+.workflow-action-grid .panel-heading{margin-bottom:3px}
+.workflow-field input,.workflow-field select,.workflow-field textarea{width:100%;min-width:0}
+.workflow-field textarea{min-height:86px;resize:vertical}
+.workflow-number-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.workflow-evidence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.workflow-evidence-grid>div{min-width:0}
+.workflow-evidence-grid h4{font:600 12px 'Space Grotesk';margin:0 0 10px;color:#c6d3ed}
+.workflow-evidence{display:grid;gap:6px;padding:11px 0;border-top:1px solid #263550}
+.workflow-evidence b{font-size:11px}
+.workflow-evidence small{font-size:10px;color:#8190aa;line-height:1.5}
+.workflow-evidence p{font-size:11px;color:#b6c3d9;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.workflow-note{display:flex;align-items:center;gap:7px;margin-top:14px}
+.workflow-note svg{flex-shrink:0;color:#8ce0bb}
+@media(max-width:850px){.workflow-action-grid{grid-template-columns:1fr}.workflow-evidence-grid{grid-template-columns:1fr}}
+
+
+/* AI GitHub review and CI diagnosis */
+.github-ai-center{display:grid;gap:16px}.github-ai-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.github-ai-action{display:grid;gap:10px;padding:14px;background:#0d1729;border:1px solid #263550;border-radius:10px}.github-ai-action label{display:grid;gap:7px;color:#9aa9c3;font-size:11px}.github-ai-action button{justify-self:start}.ai-privacy-note{margin-top:13px;max-width:900px}.github-ai-history{display:grid;gap:8px}.github-ai-history-item{display:grid;gap:5px;text-align:left;padding:12px;background:#0d1729;color:#dce5f7;border:1px solid #263550;border-radius:8px;cursor:pointer}.github-ai-history-item.selected{border-color:#829cff;background:#172644}.github-ai-history-item b{font-size:12px}.github-ai-history-item small{font-size:10px;color:#8190aa}.ai-analysis-summary{font-size:13px;line-height:1.7;color:#c7d3e8}.ai-finding{padding:14px 0;border-top:1px solid #263550;display:grid;gap:8px}.ai-finding-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.ai-finding-heading b{font-size:12px}.ai-finding>small{font-size:10px;color:#8190aa;overflow-wrap:anywhere}.ai-finding>p,.ai-recommendation p{font-size:12px;line-height:1.65;color:#b8c5da;margin:0}.ai-finding-severity{font-size:9px;text-transform:uppercase;border-radius:20px;padding:5px 8px;border:1px solid #52617a;color:#c4d0e4}.ai-finding-severity.critical,.ai-finding-severity.high{border-color:#a34b58;color:#ffb6c0;background:#3b202b}.ai-finding-severity.medium{border-color:#99753e;color:#f2d18e;background:#342b1c}.ai-finding-severity.low{border-color:#426e75;color:#9edbe0;background:#183036}.ai-finding-severity.info{border-color:#405b8c;color:#aac3ff;background:#172644}.ai-recommendation{padding:10px;background:#0d1729;border-radius:8px}.ai-recommendation b{font-size:10px;color:#9db5ff}.ai-recommendation p{margin-top:5px}@media(max-width:700px){.github-ai-actions{grid-template-columns:1fr}.ai-finding-heading{align-items:flex-start;flex-direction:column}}
+
+.ai-task-link{display:grid;gap:10px;padding:13px;margin:12px 0;background:#0d1729;border:1px solid #263550;border-radius:9px}.ai-task-link>div:first-child{display:grid;gap:5px}.ai-task-link b{font-size:11px;color:#dce5f7}.ai-task-link small{font-size:10px;line-height:1.5;color:#8190aa}.ai-task-link .create-row select{flex:1;min-width:0}.ai-linked-tasks{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ai-linked-tasks .role{font-size:10px}.pipeline-ai-evidence{display:grid;gap:5px;padding:10px;margin-top:7px;background:#172644;border:1px solid #405b8c;border-radius:8px}.pipeline-ai-evidence b{font-size:10px;color:#aac3ff}.pipeline-ai-evidence small{font-size:10px;line-height:1.5;color:#b8c5da;overflow-wrap:anywhere}
+
+
+/* Live external integration diagnostics */
+.github-integration-panel .panel-heading{align-items:center}
+.github-integration-results{display:grid;gap:10px;margin-top:14px}
+.github-integration-overall,.github-integration-check>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.github-integration-overall{padding:11px 12px;background:#0d1729;border:1px solid #263550;border-radius:8px}
+.github-integration-overall>b,.github-integration-check b{font-size:11px;color:#dce5f7}
+.github-integration-check{display:grid;gap:6px;padding:10px 12px;border:1px solid #263550;border-radius:8px}
+.github-integration-check p,.github-integration-note{margin:0;font-size:10px;line-height:1.6;color:#9aa9c3;overflow-wrap:anywhere}
+.github-integration-badge{font-size:9px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #52617a;border-radius:20px;padding:4px 8px;color:#c4d0e4}
+.github-integration-badge.passed{border-color:#426e75;color:#9edbe0;background:#183036}
+.github-integration-badge.warning{border-color:#99753e;color:#f2d18e;background:#342b1c}
+.github-integration-badge.failed{border-color:#a34b58;color:#ffb6c0;background:#3b202b}
+
+.task-collaboration{display:grid;gap:14px}.task-collaboration-controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px}.task-comments{display:grid;gap:10px}.task-comment{padding:12px;border:1px solid #263550;border-radius:9px;background:#0d1628}.task-comment small{display:block;color:#7f8da8;margin-bottom:6px}.task-comment p{margin:0;font-size:12px;white-space:pre-wrap}.task-comment-compose{display:flex;gap:10px}.task-comment-compose input{flex:1}@media(max-width:720px){.task-collaboration-controls{grid-template-columns:1fr}.task-comment-compose{flex-direction:column}}
+
+
+/* Cycles, milestones and task hierarchy planning */
+.planning-center{display:grid;gap:16px}
+.planning-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.planning-tabs button{border:1px solid #2b3a55;background:#101b30;color:#aebbd2;padding:9px 14px;border-radius:8px;font-size:11px}
+.planning-tabs button.active{border-color:#829cff;color:#dce5f7;background:#1a2a49}
+.planning-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.planning-form-grid label{display:grid;gap:6px;font-size:10px;color:#9aa9c3}
+.planning-form-grid .wide{grid-column:1/-1}
+.planning-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.planning-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.planning-card{display:grid;gap:10px;padding:14px;border:1px solid #263550;border-radius:10px;background:#0d1729;min-width:0}
+.planning-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.planning-card-header b{font-size:13px}
+.planning-card p{font-size:11px;line-height:1.55;color:#9aa9c3;margin:0;overflow-wrap:anywhere}
+.planning-card small{font-size:10px;color:#8190aa}
+.planning-card-controls{display:flex;gap:8px;flex-wrap:wrap}
+.planning-card-controls select{font-size:10px;padding:7px 9px}
+.planning-progress{height:6px;border-radius:20px;background:#25324a;overflow:hidden}
+.planning-progress i{display:block;height:100%;background:#829cff;border-radius:20px}
+.planning-progress-label{display:flex;justify-content:space-between;font-size:10px;color:#9aa9c3}
+.planning-relationship-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.planning-relationship-grid label{display:grid;gap:6px;font-size:10px;color:#9aa9c3}
+.planning-task-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #263550}
+.planning-task-row>div{display:grid;gap:4px;min-width:0}
+.planning-task-row b{font-size:11px;overflow-wrap:anywhere}
+.planning-task-row small{font-size:10px;color:#8190aa}
+.planning-empty{padding:18px;text-align:center;color:#8190aa;font-size:11px;border:1px dashed #34445f;border-radius:9px}
+@media(max-width:850px){.planning-card-grid{grid-template-columns:1fr}.planning-relationship-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.planning-form-grid,.planning-relationship-grid{grid-template-columns:1fr}.planning-form-grid .wide{grid-column:auto}.planning-task-row{align-items:flex-start;flex-direction:column}}
+
+
+/* Standalone public judge demo */
+.public-demo-shell{width:min(1120px,calc(100% - 40px));margin:0 auto;padding:32px 0 56px;min-height:100vh}.public-demo-shell .demo-workspace{gap:18px}.public-demo-shell .demo-banner{padding:26px 28px}.public-demo-shell .panel{margin:0}@media(max-width:640px){.public-demo-shell{width:calc(100% - 24px);padding:16px 0 32px}}

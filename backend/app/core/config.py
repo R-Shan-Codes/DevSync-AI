@@ -16,6 +16,7 @@ class Settings(BaseSettings):
  github_client_secret:str=''
  github_callback_url:str='http://127.0.0.1:8000/api/v1/github/callback'
  github_token_encryption_key:str=''
+ github_webhook_secret:str=''
  frontend_url:str='http://localhost:5173'
  model_config=SettingsConfigDict(env_file='.env',extra='ignore')
  @property

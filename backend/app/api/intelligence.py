@@ -109,6 +109,25 @@ async def ingest_events(project_id: str, data: EventBatch, db: Session = Depends
         payload = item.payload
         if len(json.dumps(payload, ensure_ascii=False)) > 12000:
             raise HTTPException(status_code=413, detail="Development event payload exceeds 12 KB")
+        if item.event_type == "commit.created":
+            commit_hash = str(payload.get("commit_hash", "")).lower()
+            if re.fullmatch(r"[0-9a-f]{40}", commit_hash):
+                existing_commit = db.scalar(select(GitEvent.id).where(
+                    GitEvent.project_id == project_id,
+                    GitEvent.commit_hash == commit_hash,
+                ))
+                if not existing_commit:
+                    db.add(GitEvent(
+                        project_id=project_id,
+                        actor_id=user.id,
+                        repository_path=str(payload.get("repository_path", "vscode"))[:500],
+                        branch=str(payload.get("branch", ""))[:255],
+                        commit_hash=commit_hash,
+                        author=str(payload.get("author", user.display_name))[:255],
+                        author_email=str(payload.get("author_email", user.email))[:320],
+                        committed_at=str(payload.get("committed_at", datetime.now(timezone.utc).isoformat()))[:40],
+                        message=str(payload.get("message", ""))[:12000],
+                    ))
         if item.event_type.startswith("file."):
             path = _safe_relative_path(str(payload.get("path", "")))
             change_type = item.event_type.split(".", 1)[1]

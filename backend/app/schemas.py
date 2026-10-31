@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import date,datetime
 from pydantic import BaseModel,ConfigDict,EmailStr,Field,model_validator
+from typing import Literal
 from app.models import ProjectRole,TaskStatus
 class UserCreate(BaseModel): email:EmailStr;display_name:str=Field(min_length=1,max_length=80);password:str=Field(min_length=8,max_length=128)
 class UserRead(BaseModel):
@@ -13,11 +14,11 @@ class ProjectRead(BaseModel):
 class MemberCreate(BaseModel): email:EmailStr;role:ProjectRole=ProjectRole.frontend_developer
 class MemberUpdate(BaseModel): role:ProjectRole|None=None;permissions:dict[str,bool]|None=None
 class MemberRead(BaseModel): id:str;user_id:str;email:EmailStr;display_name:str;role:str;permissions:dict[str,bool]
-class TaskCreate(BaseModel): title:str=Field(min_length=2,max_length=180);description:str=Field(default='',max_length=10000);assignee_id:str|None=None
-class TaskUpdate(BaseModel): title:str|None=Field(default=None,min_length=2,max_length=180);description:str|None=Field(default=None,max_length=10000);status:TaskStatus|None=None;assignee_id:str|None=None
+class TaskCreate(BaseModel): title:str=Field(min_length=2,max_length=180);description:str=Field(default='',max_length=10000);assignee_id:str|None=None;priority:Literal['low','medium','high','urgent']='medium';due_date:date|None=None;cycle_id:str|None=None;milestone_id:str|None=None;parent_task_id:str|None=None
+class TaskUpdate(BaseModel): title:str|None=Field(default=None,min_length=2,max_length=180);description:str|None=Field(default=None,max_length=10000);status:TaskStatus|None=None;assignee_id:str|None=None;priority:Literal['low','medium','high','urgent']|None=None;due_date:date|None=None;cycle_id:str|None=None;milestone_id:str|None=None;parent_task_id:str|None=None
 class TaskRead(BaseModel):
  model_config=ConfigDict(from_attributes=True)
- id:str;project_id:str;title:str;description:str;status:TaskStatus;assignee_id:str|None;created_by_id:str;created_at:datetime;updated_at:datetime
+ id:str;project_id:str;title:str;description:str;status:TaskStatus;assignee_id:str|None;created_by_id:str;priority:str;due_date:date|None;cycle_id:str|None;milestone_id:str|None;parent_task_id:str|None;created_at:datetime;updated_at:datetime
 class ActivityRead(BaseModel): id:str;project_id:str;actor_id:str;event_type:str;payload:dict;created_at:datetime
 class GitSyncRequest(BaseModel): repository_path:str=Field(min_length=1,max_length=500);commit_limit:int=Field(default=30,ge=1,le=100)
 class GitEventRead(BaseModel):
@@ -50,3 +51,42 @@ class ConflictAnalyzeRequest(BaseModel):
  repository_path:str=Field(min_length=1,max_length=500)
  target_ref:str=Field(min_length=1,max_length=255)
  source_ref:str=Field(min_length=1,max_length=255)
+
+
+class TaskCommentCreate(BaseModel):
+ body:str=Field(min_length=1,max_length=5000)
+class TaskCommentRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;task_id:str;author_id:str;body:str;created_at:datetime
+
+
+class CycleCreate(BaseModel):
+ name:str=Field(min_length=2,max_length=120)
+ goal:str=Field(default='',max_length=4000)
+ start_date:date
+ end_date:date
+ @model_validator(mode='after')
+ def valid_dates(self):
+  if self.end_date < self.start_date: raise ValueError('Cycle end date must be on or after start date')
+  return self
+class CycleUpdate(BaseModel):
+ name:str|None=Field(default=None,min_length=2,max_length=120)
+ goal:str|None=Field(default=None,max_length=4000)
+ start_date:date|None=None
+ end_date:date|None=None
+ status:Literal['planned','active','completed']|None=None
+class CycleRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;name:str;goal:str;start_date:date;end_date:date;status:str;created_at:datetime;updated_at:datetime
+class MilestoneCreate(BaseModel):
+ name:str=Field(min_length=2,max_length=120)
+ description:str=Field(default='',max_length=4000)
+ due_date:date|None=None
+class MilestoneUpdate(BaseModel):
+ name:str|None=Field(default=None,min_length=2,max_length=120)
+ description:str|None=Field(default=None,max_length=4000)
+ due_date:date|None=None
+ status:Literal['planned','in_progress','completed']|None=None
+class MilestoneRead(BaseModel):
+ model_config=ConfigDict(from_attributes=True)
+ id:str;project_id:str;name:str;description:str;due_date:date|None;status:str;created_at:datetime;updated_at:datetime
