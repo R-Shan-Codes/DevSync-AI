@@ -44,7 +44,7 @@ def _record_push(db: Session, project: Project, payload: dict) -> list[dict]:
             author=str(raw_author.get("name") or github_author.get("name") or "Unknown")[:255],
             author_email=str(raw_author.get("email") or "")[:320],
             committed_at=str((commit.get("timestamp") or ""))[:40],
-            message=str(commit.get("message") or "").splitlines()[0][:1000],
+            message=(str(commit.get("message") or "").splitlines() or [""])[0][:1000],
         )
         db.add(event)
         created_events.append({
@@ -151,7 +151,7 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         repository_full_name=repository_full_name,
         project_id=project.id if project else None,
         payload_sha256=hashlib.sha256(body).hexdigest(),
-        outcome="ignored" if not project else "processed",
+        outcome="ignored" if not project or event_type not in {"push", "pull_request", "check_run", "check_suite"} else "processed",
     )
     db.add(delivery)
 
