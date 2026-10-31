@@ -18,10 +18,19 @@ export function activate(context: vscode.ExtensionContext) {
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.refresh', refresh))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.setRole', async () => {
-    const role = await vscode.window.showQuickPick(['team_leader_project_manager','ui_ux_designer','frontend_developer','backend_developer','tester_qa_engineer','devops_engineer','security_engineer','documentation_specialist'], { placeHolder: 'Select your role for this project' })
-    if (!role) return
-    await vscode.workspace.getConfiguration('devsync').update('role', role, vscode.ConfigurationTarget.Workspace)
-    vscode.window.showInformationMessage(`DevSync role set to ${role}`)
+    try {
+      const membership = await api!.membership()
+      const enabled = Object.entries(membership.permissions).filter(([, allowed]) => allowed).map(([name]) => name.replaceAll('_', ' ')).join(', ')
+      vscode.window.showInformationMessage(`DevSync project role: ${membership.role.replaceAll('_', ' ')}. Permissions: ${enabled}`)
+    } catch (e) { vscode.window.showErrorMessage(message(e)) }
+  }))
+  context.subscriptions.push(vscode.commands.registerCommand('devsync.selectProject', async () => {
+    const current = vscode.workspace.getConfiguration('devsync').get<string>('projectId', '')
+    const projectId = await vscode.window.showInputBox({ prompt: 'Enter the DevSync project ID', value: current, ignoreFocusOut: true })
+    if (!projectId?.trim()) return
+    await vscode.workspace.getConfiguration('devsync').update('projectId', projectId.trim(), vscode.ConfigurationTarget.Workspace)
+    await refresh()
+    vscode.window.showInformationMessage('DevSync project selected')
   }))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(api!.dashboardUrl))))
   context.subscriptions.push(vscode.commands.registerCommand('devsync.syncGit', syncGit))
