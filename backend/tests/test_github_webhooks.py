@@ -261,3 +261,44 @@ def test_webhook_repository_lookup_does_not_treat_underscore_as_sql_wildcard(cli
         ).count() == 0
     finally:
         generator.close()
+
+
+def test_webhook_push_commit_is_available_to_commit_task_matching(client, monkeypatch):
+    project_id = _project_with_repository(client, "webhook-commit-task-match@example.com")
+    headers = {
+        "Authorization": "Bearer " + client.post(
+            "/api/v1/auth/login",
+            data={"username": "webhook-commit-task-match@example.com", "password": "secure-pass-123"},
+        ).json()["access_token"]
+    }
+    task = client.post(
+        f"/api/v1/projects/{project_id}/tasks",
+        headers=headers,
+        json={"title": "Implement OAuth token refresh", "description": "Refresh expired OAuth tokens safely."},
+    ).json()
+    secret = "test-webhook-secret"
+    monkeypatch.setattr(config.settings, "github_webhook_secret", secret)
+    commit_hash = "f" * 40
+    payload = {
+        "ref": "refs/heads/feature/oauth-refresh",
+        "repository": {"full_name": "acme/devsync"},
+        "commits": [{
+            "id": commit_hash,
+            "message": "Implement OAuth token refresh",
+            "timestamp": "2026-10-31T13:00:00Z",
+            "author": {"name": "Contributor", "email": "contributor@example.com"},
+        }],
+    }
+    response = _send_webhook(client, payload, "push", "push-task-match-delivery", secret)
+    assert response.status_code == 200, response.text
+
+    suggestions = client.get(
+        f"/api/v1/projects/{project_id}/intelligence/commit-task-suggestions",
+        headers=headers,
+    )
+    assert suggestions.status_code == 200, suggestions.text
+    candidate = next(
+        item for item in suggestions.json()["suggestions"]
+        if item["commit_hash"] == commit_hash
+    )
+    assert candidate["candidates"][0]["task_id"] == task["id"]
