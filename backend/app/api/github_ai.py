@@ -175,13 +175,13 @@ async def github_download_bounded(
                 raise HTTPException(status_code=502, detail=f"GitHub API returned HTTP {response.status_code}.")
             content_length = response.headers.get("content-length")
             if content_length and content_length.isdigit() and int(content_length) > max_bytes:
-                raise HTTPException(status_code=413, detail="GitHub Actions log archive exceeds the configured size limit.")
+                raise HTTPException(status_code=413, detail="GitHub download exceeds the configured size limit.")
             chunks = []
             size = 0
             async for chunk in response.aiter_bytes():
                 size += len(chunk)
                 if size > max_bytes:
-                    raise HTTPException(status_code=413, detail="GitHub Actions log archive exceeds the configured size limit.")
+                    raise HTTPException(status_code=413, detail="GitHub download exceeds the configured size limit.")
                 chunks.append(chunk)
             return b"".join(chunks)
     except httpx.HTTPError as exc:
