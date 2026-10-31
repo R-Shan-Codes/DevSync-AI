@@ -81,4 +81,4 @@ def git_branches(project_id: str, repository_path: str, db: Session = Depends(ge
     get_project_member(project_id, db, user)
     repo = resolve_repository(repository_path)
     raw = run_git(repo, "branch", "--format=%(refname:short)%09%(HEAD)")
-    return [{"name": line.split("\\t", 1)[0], "current": line.endswith("*")} for line in raw.splitlines() if line.strip()]
+    return [{"name": line.split("\t", 1)[0], "current": line.endswith("*")} for line in raw.splitlines() if line.strip()]
