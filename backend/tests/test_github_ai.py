@@ -1,11 +1,14 @@
+import asyncio
 import io
 import json
 import zipfile
 
+import httpx
+
 from app.core.database import get_db
 from app.main import app
 from app.models import AIReviewArtifact, Project, User
-from app.api.github_ai import extract_job_logs, normalize_findings, parse_ai_json, redact_secrets
+from app.api.github_ai import extract_job_logs, github_download_bounded, normalize_findings, parse_ai_json, redact_secrets
 
 
 def register(client, email):
@@ -220,3 +223,33 @@ def test_github_job_log_extraction_is_bounded_and_ignores_non_log_files():
 def test_github_job_log_extraction_rejects_oversized_and_invalid_archives():
     assert "10 MB safety limit" in extract_job_logs(b"x" * 10_000_001)
     assert "could not be decoded safely" in extract_job_logs(b"not a zip archive")
+
+
+def test_github_log_download_stream_enforces_body_limit():
+    async def run():
+        async def too_large(request):
+            return httpx.Response(200, content=b"123456", headers={"content-length": "6"})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(too_large)) as client:
+            try:
+                await github_download_bounded(client, "https://api.github.test/logs", "token", 5)
+            except Exception as exc:
+                assert getattr(exc, "status_code", None) == 413
+            else:
+                raise AssertionError("Expected the archive size limit to reject the response")
+
+    asyncio.run(run())
+
+
+def test_github_log_download_stream_reads_valid_bounded_body():
+    async def run():
+        async def response(request):
+            return httpx.Response(200, content=b"small log")
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
+            result = await github_download_bounded(
+                client, "https://api.github.test/logs", "token", 100
+            )
+            assert result == b"small log"
+
+    asyncio.run(run())
