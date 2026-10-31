@@ -1,5 +1,138 @@
 {
-  "name":"devsync","displayName":"DevSync","description":"Collaborative role-based development workspace for DevSync","version":"0.1.0","publisher":"devsync-ai","engines":{"vscode":"^1.85.0"},"categories":["Other","SCM"],"activationEvents":["onStartupFinished","onView:devsync.tasks"],"main":"./out/extension.js",
-  "contributes":{"commands":[{"command":"devsync.login","title":"DevSync: Connect Account"},{"command":"devsync.refresh","title":"DevSync: Refresh Tasks"},{"command":"devsync.setRole","title":"DevSync: Show My Project Access"},{"command":"devsync.selectProject","title":"DevSync: Select Project"},{"command":"devsync.openDashboard","title":"DevSync: Open Dashboard"},{"command":"devsync.syncGit","title":"DevSync: Sync Local Git Commits"},{"command":"devsync.githubStatus","title":"DevSync: GitHub Connection Status"},{"command":"devsync.syncGitHub","title":"DevSync: Sync GitHub Repository"}],"views":{"devsync":[{"id":"devsync.tasks","name":"My Tasks"}]},"viewsContainers":{"activitybar":[{"id":"devsync","title":"DevSync","icon":"media/devsync.svg"}]},"configuration":{"title":"DevSync","properties":{"devsync.apiUrl":{"type":"string","default":"http://127.0.0.1:8000/api/v1","description":"DevSync backend API URL"},"devsync.projectId":{"type":"string","default":"","description":"Active DevSync project ID"},"devsync.workspaceRoot":{"type":"string","default":"","description":"Absolute backend workspace root, if configured"},"devsync.role":{"type":"string","enum":["team_leader_project_manager","ui_ux_designer","frontend_developer","backend_developer","tester_qa_engineer","devops_engineer","security_engineer","documentation_specialist"],"default":"frontend_developer"}}}},
-  "scripts":{"compile":"tsc -p ./","watch":"tsc -watch -p ./","package":"vsce package"},"devDependencies":{"@types/vscode":"^1.85.0","@types/node":"^20.11.0","typescript":"^5.3.3"}
+  "name": "devsync",
+  "displayName": "DevSync",
+  "description": "Collaborative role-based development workspace for DevSync",
+  "version": "0.1.0",
+  "publisher": "devsync-ai",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "SCM"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:devsync.tasks"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "devsync.login",
+        "title": "DevSync: Connect Account"
+      },
+      {
+        "command": "devsync.refresh",
+        "title": "DevSync: Refresh Tasks"
+      },
+      {
+        "command": "devsync.setRole",
+        "title": "DevSync: Show My Project Access"
+      },
+      {
+        "command": "devsync.selectProject",
+        "title": "DevSync: Select Project"
+      },
+      {
+        "command": "devsync.openDashboard",
+        "title": "DevSync: Open Dashboard"
+      },
+      {
+        "command": "devsync.syncGit",
+        "title": "DevSync: Sync Local Git Commits"
+      },
+      {
+        "command": "devsync.githubStatus",
+        "title": "DevSync: GitHub Connection Status"
+      },
+      {
+        "command": "devsync.syncGitHub",
+        "title": "DevSync: Sync GitHub Repository"
+      },
+      {
+        "command": "devsync.tasks.changeStatus",
+        "title": "DevSync: Move Task to Next Stage"
+      },
+      {
+        "command": "devsync.tasks.reportBug",
+        "title": "DevSync: Report Bug for Task"
+      }
+    ],
+    "views": {
+      "devsync": [
+        {
+          "id": "devsync.tasks",
+          "name": "My Tasks"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devsync",
+          "title": "DevSync",
+          "icon": "media/devsync.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DevSync",
+      "properties": {
+        "devsync.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000/api/v1",
+          "description": "DevSync backend API URL"
+        },
+        "devsync.projectId": {
+          "type": "string",
+          "default": "",
+          "description": "Active DevSync project ID"
+        },
+        "devsync.workspaceRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute backend workspace root, if configured"
+        },
+        "devsync.role": {
+          "type": "string",
+          "enum": [
+            "team_leader_project_manager",
+            "ui_ux_designer",
+            "frontend_developer",
+            "backend_developer",
+            "tester_qa_engineer",
+            "devops_engineer",
+            "security_engineer",
+            "documentation_specialist"
+          ],
+          "default": "frontend_developer"
+        }
+      }
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "devsync.tasks.changeStatus",
+          "when": "view == devsync.tasks && viewItem == devsyncTask",
+          "group": "inline@1"
+        },
+        {
+          "command": "devsync.tasks.reportBug",
+          "when": "view == devsync.tasks && viewItem == devsyncTask",
+          "group": "inline@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
 }
