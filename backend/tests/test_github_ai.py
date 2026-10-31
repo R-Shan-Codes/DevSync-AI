@@ -4,10 +4,13 @@ import json
 import zipfile
 
 import httpx
+from cryptography.fernet import Fernet
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
-from app.models import AIReviewArtifact, Project, User
+from app.models import AIReviewArtifact, GitHubAccount, Project, User
+from app.core.github_security import encrypt_token
 from app.api import github_ai
 from app.api.github_ai import extract_job_logs, gemini_analysis, github_download_bounded, normalize_findings, parse_ai_json, redact_secrets
 
@@ -301,3 +304,28 @@ def test_gemini_analysis_sends_api_key_in_header_not_url(monkeypatch):
     assert captured["headers"]["x-goog-api-key"] == "test-gemini-secret"
     assert "test-gemini-secret" not in captured["url"]
     assert "key=" not in captured["url"]
+
+
+def _connect_github_for_test(client, email, project_id, monkeypatch):
+    key = Fernet.generate_key().decode("ascii")
+    monkeypatch.setattr(settings, "github_token_encryption_key", key)
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        user = db.query(User).filter_by(email=email).one()
+        project = db.get(Project, project_id)
+        project.github_repo_full_name = "acme/devsync"
+        project.github_repo_url = "https://github.com/acme/devsync"
+        project.github_default_branch = "main"
+        db.add(GitHubAccount(
+            user_id=user.id,
+            github_user_id="12345",
+            login="integration-user",
+            avatar_url="",
+            access_token_encrypted=encrypt_token("mock-github-access-token"),
+            scopes="repo read:user",
+        ))
+        db.commit()
+    finally:
+        generator.close()
+    return httpx.AsyncClient
